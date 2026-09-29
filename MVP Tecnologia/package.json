@@ -1,0 +1,10 @@
+{
+  "name": "mvp-ebenezer",
+  "version": "0.1.0",
+  "description": "MVP Funcional - Instituto Ebenezer (Desafio A) - Semana 10 - Trilha de Tecnologia",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "UNLICENSED"
+}
