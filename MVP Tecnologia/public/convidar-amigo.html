@@ -80,7 +80,10 @@
 <script src="js/app.js"></script>
 <script src="js/nav-menu.js"></script>
 <script>
-  const doadorId = paramUrl("doador");
+  // doadorId só existe depois que exigirLogin() confirma a sessão (ver
+  // bootstrap no fim do script) — antes dependia só de ?doador= na URL, que
+  // quebrava se a página fosse aberta direto (bug real encontrado).
+  let doadorId = null;
 
   function mostrarCopiado() {
     const aviso = document.getElementById("aviso-copiado");
@@ -90,14 +93,17 @@
 
   async function compartilharHistoria(historiaId, apelido, botao) {
     if (!doadorId) {
-      alert("Não foi possível identificar sua conta de doador. Acesse esta página a partir da sua área do doador.");
+      alert("Sua sessão expirou. Entre novamente para compartilhar uma história.");
       return;
     }
     const textoOriginal = botao.textContent;
     botao.disabled = true;
     botao.textContent = "Gerando link...";
     try {
-      const indicacao = await apiPost("/api/indicacoes", { doador_id: Number(doadorId), historia_id: historiaId });
+      // doador_id não vai mais no corpo: o servidor identifica o doador
+      // pela sessão autenticada (Authorization, anexado automaticamente
+      // por apiPost) — evita que alguém indique em nome de outra conta.
+      const indicacao = await apiPost("/api/indicacoes", { historia_id: historiaId });
       const link = `${window.location.origin}/apadrinhar.html?indicacao=${indicacao.id}`;
       const textoCompartilhamento = `Oi! Eu doo pro Instituto Ebenézer e quis te convidar a conhecer a história de "${apelido}" — dá uma olhada: ${link}`;
 
@@ -183,8 +189,15 @@
     }
   }
 
+  // O mosaico de histórias é público (não depende do doador), carrega logo.
+  // "Minhas indicações" e o botão de compartilhar precisam de sessão válida.
   carregarMosaico();
-  carregarIndicacoes();
+  (async () => {
+    const doador = await exigirLogin();
+    if (!doador) return; // exigirLogin já redirecionou pra login.html
+    doadorId = doador.id;
+    carregarIndicacoes();
+  })();
 </script>
 </body>
 </html>

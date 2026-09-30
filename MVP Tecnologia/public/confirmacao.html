@@ -34,31 +34,12 @@
         <div class="linha-resumo"><span class="rotulo">Início</span><span class="valor">Imediato</span></div>
       </div>
 
-      <form id="form-conta" class="formulario-conta" hidden>
-        <div class="campo-form">
-          <label for="campo-nome">Nome</label>
-          <input type="text" id="campo-nome" required />
-        </div>
-        <div class="campo-form">
-          <label for="campo-email">E-mail</label>
-          <input type="email" id="campo-email" required />
-        </div>
-        <div class="campo-form">
-          <label for="campo-tipo">Tipo</label>
-          <select id="campo-tipo">
-            <option value="PF">Pessoa física</option>
-            <option value="PJ">Pessoa jurídica</option>
-          </select>
-        </div>
-        <button type="submit" class="botao-cta" style="margin-top:12px;">Criar conta</button>
-      </form>
     </div>
   </div>
 
   <div class="rodape" id="bloco-inicial" style="align-items:center;">
     <button type="button" class="botao-cta" id="botao-criar-conta">Criar minha área do doador</button>
     <button type="button" class="link-agora-nao" id="botao-agora-nao">Agora não</button>
-    <p class="mensagem-erro" id="mensagem-erro"></p>
     <div class="indicador-home"><span></span></div>
   </div>
 </div>
@@ -94,24 +75,11 @@
     window.location.href = "index.html";
   });
 
+  // "Criar minha área do doador" leva pro cadastro de verdade (US-F4 —
+  // nome/e-mail/senha), carregando a doação recém-feita pra ser vinculada
+  // à conta assim que ela existir.
   document.getElementById("botao-criar-conta").addEventListener("click", () => {
-    document.getElementById("bloco-inicial").hidden = true;
-    document.getElementById("form-conta").hidden = false;
-  });
-
-  document.getElementById("form-conta").addEventListener("submit", async (evento) => {
-    evento.preventDefault();
-    try {
-      const doador = await apiPost("/api/doadores", {
-        nome: document.getElementById("campo-nome").value.trim(),
-        email: document.getElementById("campo-email").value.trim(),
-        tipo: document.getElementById("campo-tipo").value,
-        doacao_id: doacaoId,
-      });
-      window.location.href = `area-doador.html?doador=${doador.id}`;
-    } catch (erro) {
-      alert(erro.message);
-    }
+    window.location.href = `cadastro.html?doacao=${doacaoId}`;
   });
 </script>
 </body>

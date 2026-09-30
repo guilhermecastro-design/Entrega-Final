@@ -115,19 +115,16 @@
 <script src="js/app.js"></script>
 <script src="js/nav-menu.js"></script>
 <script>
-  const doadorId = paramUrl("doador");
+  // doadorId só existe depois que exigirLogin() confirma a sessão — nada
+  // abaixo que dependa dele roda antes disso (era exatamente essa falta de
+  // identificação, antes baseada só no parâmetro ?doador= da URL, que
+  // quebrava a página quando aberta sem esse parâmetro).
+  let doadorId = null;
   const ROTULOS_FORMA = {
     pix: "Pix Único",
     pix_recorrente: "Recorrente",
     cartao_recorrente: "Recorrente",
   };
-
-  // ---------- CTA "Adotar uma criança" (US-F2) ----------
-  // Leva pra convidar-amigo.html carregando o doador atual, pra a subpágina
-  // saber de quem são as indicações e poder voltar pra cá depois.
-  if (doadorId) {
-    document.getElementById("botao-adotar-crianca").href = `convidar-amigo.html?doador=${doadorId}`;
-  }
 
   // ---------- Troca de abas ----------
   document.querySelectorAll(".aba-hub").forEach((botao) => {
@@ -144,16 +141,7 @@
   });
 
   // ---------- Aba Resumo ----------
-  (async () => {
-    try {
-      const doador = await apiGet(`/api/doadores/${doadorId}`);
-      const primeiroNome = doador.nome.split(" ")[0];
-      document.getElementById("saudacao-nome").textContent = `Olá, ${primeiroNome}`;
-      document.getElementById("avatar-inicial").textContent = primeiroNome.charAt(0).toUpperCase();
-    } catch (erro) {
-      console.error(erro);
-    }
-
+  async function carregarHistorico() {
     const lista = document.getElementById("lista-historico");
     try {
       const doacoes = await apiGet(`/api/doadores/${doadorId}/doacoes`);
@@ -175,7 +163,26 @@
       }
     } catch (erro) {
       console.error(erro);
+      lista.innerHTML = '<li class="item-vazio">Não foi possível carregar seu histórico agora.</li>';
     }
+  }
+
+  // ---------- Bootstrap: exige login, depois carrega tudo que depende do doador ----------
+  (async () => {
+    const doador = await exigirLogin();
+    if (!doador) return; // exigirLogin já redirecionou pra login.html
+
+    doadorId = doador.id;
+    const primeiroNome = doador.nome.split(" ")[0];
+    document.getElementById("saudacao-nome").textContent = `Olá, ${primeiroNome}`;
+    document.getElementById("avatar-inicial").textContent = primeiroNome.charAt(0).toUpperCase();
+
+    // CTA "Adotar uma criança" (US-F2) — não precisa mais carregar
+    // ?doador= na URL: convidar-amigo.html também exige login e descobre o
+    // doador sozinho via sessão.
+    document.getElementById("botao-adotar-crianca").href = "convidar-amigo.html";
+
+    carregarHistorico();
   })();
 
   // ---------- Aba Marcos (US-F1) ----------

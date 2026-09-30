@@ -1,8 +1,24 @@
 # MVP Instituto Ebenézer — Desafio A
 
 Protótipo funcional (Node.js + Express + SQLite) do fluxo de doação, área do doador
-e indicação "Adotar uma criança" (US-F2), construído para a entrega de Tecnologia
-do Módulo 3 (MBA em IA e Dados para Negócios — Inteli).
+com login (US-F4) e indicação "Adotar uma criança" (US-F2), construído para a
+entrega de Tecnologia do Módulo 3 (MBA em IA e Dados para Negócios — Inteli).
+
+## Login — credenciais de teste
+
+A área do doador (histórico, marcos, painel de transparência, indicações) agora
+exige login de verdade (e-mail + senha, com sessão em token; senha nunca é
+guardada em texto puro — hash com salt via `node:crypto`). Pra testar sem passar
+pelo cadastro, os 2 doadores de exemplo já semeados no banco têm uma senha
+fixa:
+
+| E-mail | Senha |
+|---|---|
+| `renata.exemplo@email.com` | `ebenezer123` |
+| `marcos.exemplo@empresa.com` | `ebenezer123` |
+
+Qualquer outra pessoa pode criar a própria conta em `cadastro.html` (ou pelo
+botão "Criar minha área do doador" que aparece depois de uma doação).
 
 ## Rodando localmente
 

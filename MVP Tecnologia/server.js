@@ -30,6 +30,7 @@
 
 const path = require("node:path");
 const fs = require("node:fs");
+const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const PASTA_DADOS = path.join(__dirname, "data");
@@ -45,7 +46,27 @@ banco.exec(`
     nome TEXT NOT NULL,
     email TEXT,
     tipo TEXT NOT NULL CHECK (tipo IN ('PF', 'PJ')),
-    cpf_cnpj TEXT
+    cpf_cnpj TEXT,
+    senha_hash TEXT
+  )
+`);
+
+// Migração defensiva (mesmo padrão de "indicacoes" abaixo): bancos criados
+// antes do login (US-F4) ganham a coluna senha_hash sem precisar apagar o
+// arquivo local. Contas antigas ficam com senha_hash NULL — não conseguem
+// logar até serem recriadas via /api/auth/cadastro, o que é esperado: este
+// MVP não tinha nenhuma senha cadastrada antes de hoje.
+const colunasDoadores = banco.prepare("PRAGMA table_info(doadores)").all();
+if (!colunasDoadores.some((c) => c.name === "senha_hash")) {
+  banco.exec("ALTER TABLE doadores ADD COLUMN senha_hash TEXT");
+}
+
+banco.exec(`
+  CREATE TABLE IF NOT EXISTS sessoes (
+    token TEXT PRIMARY KEY,
+    doador_id INTEGER NOT NULL,
+    criado_em TEXT NOT NULL,
+    FOREIGN KEY (doador_id) REFERENCES doadores(id)
   )
 `);
 
@@ -248,19 +269,81 @@ function calcularEGravarConquistas(doadorId) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Autenticação (US-F4 — login da área do doador). Senha nunca é guardada em
+// texto puro: scrypt (nativo do Node, sem dependência extra) com salt
+// aleatório por conta, formato armazenado "salt:hash" em hexadecimal.
+// Sessão é um token opaco de 32 bytes, guardado em `sessoes` — sem
+// expiração automática (fora de escopo para este MVP; suficiente para a
+// demonstração e a validação com usuário real).
+// ---------------------------------------------------------------------------
+
+function gerarHashSenha(senha) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(senha, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function senhaConfere(senha, senhaHashArmazenada) {
+  if (!senhaHashArmazenada || !senhaHashArmazenada.includes(":")) return false;
+  const [salt, hashArmazenado] = senhaHashArmazenada.split(":");
+  const hashCalculado = crypto.scryptSync(senha, salt, 64).toString("hex");
+  const bufArmazenado = Buffer.from(hashArmazenado, "hex");
+  const bufCalculado = Buffer.from(hashCalculado, "hex");
+  if (bufArmazenado.length !== bufCalculado.length) return false;
+  return crypto.timingSafeEqual(bufArmazenado, bufCalculado);
+}
+
+function gerarTokenSessao() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function doadorAutenticado(req) {
+  const cabecalho = req.headers.authorization || "";
+  const token = cabecalho.startsWith("Bearer ") ? cabecalho.slice(7) : null;
+  if (!token) return null;
+  const sessao = banco.prepare("SELECT * FROM sessoes WHERE token = ?").get(token);
+  if (!sessao) return null;
+  const doador = banco.prepare("SELECT id, nome, email, tipo, cpf_cnpj FROM doadores WHERE id = ?").get(sessao.doador_id);
+  return doador || null;
+}
+
+// Exige sessão válida E que ela pertença ao :id pedido na rota — sem isso,
+// o login seria só de fachada (o front-end pediria senha, mas qualquer um
+// ainda poderia chamar a API direto pra ver dados de outro doador). Devolve
+// o doador autenticado, ou já responde 401/403 e devolve null (o handler da
+// rota deve checar `if (!doador) return;` logo depois de chamar isto).
+function exigirDonoDaConta(req, res) {
+  const doador = doadorAutenticado(req);
+  if (!doador) {
+    res.status(401).json({ erro: "Não autenticado. Faça login novamente." });
+    return null;
+  }
+  if (doador.id !== Number(req.params.id)) {
+    res.status(403).json({ erro: "Sem permissão para acessar dados de outro doador." });
+    return null;
+  }
+  return doador;
+}
+
 // --- Seed: doadores e doações sintéticas (para testar o painel) ---
 const totalDoadores = banco.prepare("SELECT COUNT(*) AS total FROM doadores").get().total;
 
 if (totalDoadores === 0) {
   const inserirDoador = banco.prepare(
-    "INSERT INTO doadores (nome, email, tipo, cpf_cnpj) VALUES (?, ?, ?, ?)"
+    "INSERT INTO doadores (nome, email, tipo, cpf_cnpj, senha_hash) VALUES (?, ?, ?, ?, ?)"
   );
+  // Senha de demonstração para os 2 doadores semeados (documentada no
+  // README) — só pra quem for avaliar o protótipo conseguir entrar direto,
+  // sem precisar passar pelo cadastro. Contas criadas pelo fluxo real
+  // (cadastro.html) usam a senha que a pessoa escolher, com o mesmo hash.
+  const senhaDemo = gerarHashSenha("ebenezer123");
   const idRenataExemplo = Number(
-    inserirDoador.run("Renata Souza (exemplo)", "renata.exemplo@email.com", "PF", null)
+    inserirDoador.run("Renata Souza (exemplo)", "renata.exemplo@email.com", "PF", null, senhaDemo)
       .lastInsertRowid
   );
   const idMarcosExemplo = Number(
-    inserirDoador.run("Marcos Lima (exemplo)", "marcos.exemplo@empresa.com", "PJ", "12.345.678/0001-90")
+    inserirDoador.run("Marcos Lima (exemplo)", "marcos.exemplo@empresa.com", "PJ", "12.345.678/0001-90", senhaDemo)
       .lastInsertRowid
   );
 
@@ -387,11 +470,8 @@ app.get("/api/indicadores", (req, res) => {
 
 // GET /api/doadores/:id/conquistas — selos do US-F1 (aba "Marcos" da área do doador)
 app.get("/api/doadores/:id/conquistas", (req, res) => {
+  if (!exigirDonoDaConta(req, res)) return;
   const doadorId = Number(req.params.id);
-  const doador = banco.prepare("SELECT id FROM doadores WHERE id = ?").get(doadorId);
-  if (!doador) {
-    return res.status(404).json({ erro: "Doador não encontrado." });
-  }
 
   calcularEGravarConquistas(doadorId);
 
@@ -482,40 +562,115 @@ app.get("/api/doacoes/:id", (req, res) => {
   res.json(doacao);
 });
 
-// POST /api/doadores — cria conta (ação opcional em confirmacao: "Criar minha
-// área do doador"). Se vier doacao_id, vincula a doação avulsa recém-feita à
-// conta nova — é assim que uma doação sem conta passa a ter dono.
-app.post("/api/doadores", (req, res) => {
-  const { nome, email, tipo, cpf_cnpj, doacao_id } = req.body;
+// ---------------------------------------------------------------------------
+// US-F4 — Login da área do doador. Antes desta versão, a área do doador e
+// suas subpáginas (convidar-amigo, comprovante-doacao) identificavam o
+// doador só pelo parâmetro ?doador= na URL — sem sessão nenhuma. Bug real
+// encontrado ao navegar direto pro link (ou pelo menu) sem esse parâmetro:
+// a página não tinha como saber quem era o usuário. Substituído por login
+// de verdade (e-mail + senha, com sessão em token) — ver front-end em
+// login.html / cadastro.html e o guard exigirLogin() em js/app.js.
+// ---------------------------------------------------------------------------
 
-  if (!nome || !["PF", "PJ"].includes(tipo)) {
-    return res.status(400).json({ erro: "Informe nome e tipo (PF ou PJ) válidos." });
+// POST /api/auth/cadastro — cria conta nova. Se vier doacao_id, vincula a
+// doação avulsa recém-feita à conta nova (mesma lógica de antes, só que
+// agora a conta nasce com senha e já retorna uma sessão ativa).
+app.post("/api/auth/cadastro", (req, res) => {
+  const { nome, email, senha, tipo, cpf_cnpj, doacao_id } = req.body;
+
+  if (!nome || !email || !senha || !["PF", "PJ"].includes(tipo)) {
+    return res.status(400).json({ erro: "Informe nome, e-mail, senha e tipo (PF ou PJ) válidos." });
+  }
+  if (senha.length < 6) {
+    return res.status(400).json({ erro: "A senha precisa ter pelo menos 6 caracteres." });
+  }
+
+  const emailNormalizado = email.trim().toLowerCase();
+  const existente = banco.prepare("SELECT id FROM doadores WHERE email = ?").get(emailNormalizado);
+  if (existente) {
+    return res.status(409).json({ erro: "Já existe uma conta com esse e-mail." });
   }
 
   const inserirDoador = banco.prepare(
-    "INSERT INTO doadores (nome, email, tipo, cpf_cnpj) VALUES (?, ?, ?, ?)"
+    "INSERT INTO doadores (nome, email, tipo, cpf_cnpj, senha_hash) VALUES (?, ?, ?, ?, ?)"
   );
   const novoId = Number(
-    inserirDoador.run(nome, email || null, tipo, cpf_cnpj || null).lastInsertRowid
+    inserirDoador.run(nome, emailNormalizado, tipo, cpf_cnpj || null, gerarHashSenha(senha)).lastInsertRowid
   );
 
   if (doacao_id) {
     banco
       .prepare("UPDATE doacoes SET doador_id = ? WHERE id = ? AND doador_id IS NULL")
       .run(novoId, Number(doacao_id));
-    // A doação recém-vinculada já pode ser suficiente para o primeiro selo
-    // (US-F1) — calcula na hora, além do recálculo idempotente que também
-    // roda a cada GET /api/doadores/:id/conquistas.
     calcularEGravarConquistas(novoId);
   }
 
-  const doador = banco.prepare("SELECT * FROM doadores WHERE id = ?").get(novoId);
-  res.status(201).json(doador);
+  const token = gerarTokenSessao();
+  banco
+    .prepare("INSERT INTO sessoes (token, doador_id, criado_em) VALUES (?, ?, ?)")
+    .run(token, novoId, new Date().toISOString());
+
+  const doador = banco.prepare("SELECT id, nome, email, tipo, cpf_cnpj FROM doadores WHERE id = ?").get(novoId);
+  res.status(201).json({ token, doador });
 });
 
-// GET /api/doadores/:id — perfil do doador (area-doador, aba Perfil)
+// POST /api/auth/login
+app.post("/api/auth/login", (req, res) => {
+  const { email, senha } = req.body;
+  if (!email || !senha) {
+    return res.status(400).json({ erro: "Informe e-mail e senha." });
+  }
+
+  const doador = banco.prepare("SELECT * FROM doadores WHERE email = ?").get(email.trim().toLowerCase());
+  if (!doador || !senhaConfere(senha, doador.senha_hash)) {
+    return res.status(401).json({ erro: "E-mail ou senha incorretos." });
+  }
+
+  const token = gerarTokenSessao();
+  banco
+    .prepare("INSERT INTO sessoes (token, doador_id, criado_em) VALUES (?, ?, ?)")
+    .run(token, doador.id, new Date().toISOString());
+
+  res.json({
+    token,
+    doador: { id: doador.id, nome: doador.nome, email: doador.email, tipo: doador.tipo, cpf_cnpj: doador.cpf_cnpj },
+  });
+});
+
+// POST /api/auth/logout — idempotente: token inexistente/já removido não é
+// erro. Responde 200 com um corpo JSON (em vez de 204 sem corpo) porque o
+// apiPost() compartilhado sempre tenta ler JSON da resposta.
+app.post("/api/auth/logout", (req, res) => {
+  const cabecalho = req.headers.authorization || "";
+  const token = cabecalho.startsWith("Bearer ") ? cabecalho.slice(7) : null;
+  if (token) {
+    banco.prepare("DELETE FROM sessoes WHERE token = ?").run(token);
+  }
+  res.json({ ok: true });
+});
+
+// GET /api/auth/me — valida a sessão atual (usada por exigirLogin() no
+// front-end antes de renderizar qualquer tela da área do doador).
+app.get("/api/auth/me", (req, res) => {
+  const doador = doadorAutenticado(req);
+  if (!doador) {
+    return res.status(401).json({ erro: "Não autenticado." });
+  }
+  res.json(doador);
+});
+
+// (o antigo POST /api/doadores, que criava conta sem senha nenhuma, foi
+// substituído por /api/auth/cadastro acima — nada mais no front-end chamava
+// aquela rota além de confirmacao.html, já atualizada.)
+
+// GET /api/doadores/:id — perfil do doador (area-doador, aba Perfil). Nunca
+// devolve senha_hash, mesmo com hash+salt — não há motivo pro front-end ver
+// esse campo.
 app.get("/api/doadores/:id", (req, res) => {
-  const doador = banco.prepare("SELECT * FROM doadores WHERE id = ?").get(Number(req.params.id));
+  if (!exigirDonoDaConta(req, res)) return;
+  const doador = banco
+    .prepare("SELECT id, nome, email, tipo, cpf_cnpj FROM doadores WHERE id = ?")
+    .get(Number(req.params.id));
   if (!doador) {
     return res.status(404).json({ erro: "Doador não encontrado." });
   }
@@ -525,6 +680,7 @@ app.get("/api/doadores/:id", (req, res) => {
 // GET /api/doadores/:id/doacoes — histórico (area-doador aba Início, e também
 // comprovante-doacao no caso do Marcos/PJ)
 app.get("/api/doadores/:id/doacoes", (req, res) => {
+  if (!exigirDonoDaConta(req, res)) return;
   const doacoes = banco
     .prepare("SELECT * FROM doacoes WHERE doador_id = ? ORDER BY criado_em DESC")
     .all(Number(req.params.id));
@@ -544,15 +700,16 @@ app.get("/api/historias", (req, res) => {
 });
 
 // POST /api/indicacoes — Renata escolhe uma história e gera o link pessoal
-// (CR1). O id retornado é o único parâmetro que a tela convidar-amigo precisa
-// pra montar o link: apadrinhar.html?indicacao=<id>.
+// (CR1). Exige login: o doador_id vem da sessão autenticada, não do corpo da
+// requisição (antes da US-F4/login, qualquer um podia mandar um doador_id
+// diferente do seu e criar uma indicação em nome de outra pessoa).
 app.post("/api/indicacoes", (req, res) => {
-  const { doador_id, historia_id } = req.body;
-
-  const doador = banco.prepare("SELECT id FROM doadores WHERE id = ?").get(Number(doador_id));
-  if (!doador) {
-    return res.status(400).json({ erro: "doador_id inválido." });
+  const doadorLogado = doadorAutenticado(req);
+  if (!doadorLogado) {
+    return res.status(401).json({ erro: "Não autenticado. Faça login novamente." });
   }
+
+  const { historia_id } = req.body;
   const historia = banco.prepare("SELECT id FROM historias WHERE id = ?").get(Number(historia_id));
   if (!historia) {
     return res.status(400).json({ erro: "historia_id inválido." });
@@ -561,7 +718,7 @@ app.post("/api/indicacoes", (req, res) => {
   const criadoEm = new Date().toISOString();
   const resultado = banco
     .prepare("INSERT INTO indicacoes (doador_id, historia_id, status, criado_em) VALUES (?, ?, 'pendente', ?)")
-    .run(Number(doador_id), Number(historia_id), criadoEm);
+    .run(doadorLogado.id, Number(historia_id), criadoEm);
 
   const indicacao = banco.prepare("SELECT * FROM indicacoes WHERE id = ?").get(Number(resultado.lastInsertRowid));
   res.status(201).json(indicacao);
@@ -594,6 +751,7 @@ app.get("/api/indicacoes/:id", (req, res) => {
 // GET /api/doadores/:id/indicacoes — seção "Minhas indicações" (tela
 // convidar-amigo): mostra o status de cada história já compartilhada.
 app.get("/api/doadores/:id/indicacoes", (req, res) => {
+  if (!exigirDonoDaConta(req, res)) return;
   const indicacoes = banco
     .prepare(
       `SELECT indicacoes.id, indicacoes.status, indicacoes.criado_em, historias.apelido

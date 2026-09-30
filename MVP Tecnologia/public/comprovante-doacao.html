@@ -49,7 +49,6 @@
 <script src="js/app.js"></script>
 <script src="js/nav-menu.js"></script>
 <script>
-  const doadorId = paramUrl("doador");
   const ROTULOS_FORMA = {
     pix: "Avulso",
     pix_recorrente: "Mensal",
@@ -57,13 +56,12 @@
   };
 
   (async () => {
+    const doador = await exigirLogin();
+    if (!doador) return; // exigirLogin já redirecionou pra login.html
+    const doadorId = doador.id;
+
     const infoEmpresa = document.getElementById("info-empresa");
-    try {
-      const doador = await apiGet(`/api/doadores/${doadorId}`);
-      infoEmpresa.innerHTML = `<p class="nome-doc">${doador.nome}</p><p class="data-doc">${doador.cpf_cnpj || "sem CNPJ cadastrado"}</p>`;
-    } catch (erro) {
-      infoEmpresa.innerHTML = '<p class="nome-doc">Doador não encontrado.</p>';
-    }
+    infoEmpresa.innerHTML = `<p class="nome-doc">${doador.nome}</p><p class="data-doc">${doador.cpf_cnpj || "sem CNPJ cadastrado"}</p>`;
 
     const lista = document.getElementById("lista-comprovantes");
     try {
