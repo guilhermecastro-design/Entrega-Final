@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Você foi convidado — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="brand-header">
+    <div class="logo">
+      <div class="logo-marca" data-icon="book-open"></div>
+      <span class="nome">Ebenézer</span>
+    </div>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo" style="gap: 24px;" id="conteudo-convite">
+      <p class="item-vazio">Carregando convite...</p>
+    </div>
+  </div>
+
+  <div class="rodape" id="rodape-cta" hidden>
+    <button type="button" class="botao-cta" id="botao-apadrinhar">Quero apadrinhar simbolicamente</button>
+    <p class="mensagem-erro" id="mensagem-erro"></p>
+    <div class="indicador-home"><span></span></div>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  const indicacaoId = paramUrl("indicacao");
+  const container = document.getElementById("conteudo-convite");
+  const rodape = document.getElementById("rodape-cta");
+
+  async function carregar() {
+    if (!indicacaoId) {
+      container.innerHTML = '<p class="item-vazio">Este link está incompleto. Peça pra quem te convidou enviar de novo.</p>';
+      return;
+    }
+    try {
+      const indicacao = await apiGet(`/api/indicacoes/${indicacaoId}`);
+      const jaConfirmada = indicacao.status === "encontrou_padrinho";
+
+      container.innerHTML = `
+        <p class="rotulo-convite">${indicacao.primeiro_nome_indicador} te convidou para apadrinhar</p>
+
+        <div class="hero-historia-apadrinhar relato-card">
+          <div class="thumb-relato">[Foto: ${indicacao.apelido} — não pôde ser baixada do Figma neste ambiente]</div>
+          <div class="texto-relato">
+            <span class="selo-forma">${indicacao.faixa_etaria}</span>
+            <p class="titulo-relato">${indicacao.apelido}</p>
+            <p class="desc-relato">${indicacao.descricao}</p>
+          </div>
+        </div>
+
+        <div class="aviso-dados-ficticios">
+          A adoção é simbólica: sua doação vai para o Instituto Ebenézer como um todo, não é um apadrinhamento financeiro
+          direto desta criança específica.
+        </div>
+
+        <div class="reassurance">
+          <span data-icon="lock"></span>
+          <span>Sua doação é segura, protegida e criptografada de ponta a ponta.</span>
+        </div>
+
+        ${jaConfirmada ? '<p class="item-vazio">Essa indicação já encontrou um padrinho — mas toda doação ajuda!</p>' : ""}
+      `;
+      rodape.hidden = false;
+    } catch (erro) {
+      console.error(erro);
+      container.innerHTML = '<p class="item-vazio">Não encontramos esse convite. O link pode estar errado ou ter expirado.</p>';
+    }
+  }
+
+  document.getElementById("botao-apadrinhar").addEventListener("click", () => {
+    window.location.href = `escolha-doacao.html?indicacao=${indicacaoId}`;
+  });
+
+  carregar();
+</script>
+</body>
+</html>

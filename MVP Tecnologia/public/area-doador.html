@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Área do doador — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="cabecalho-doador">
+    <div class="saudacao-doador">
+      <div class="avatar" id="avatar-inicial">?</div>
+      <div class="texto-saudacao">
+        <p>Bem-vindo(a) de volta</p>
+        <strong id="saudacao-nome">Olá</strong>
+      </div>
+    </div>
+    <button type="button" class="botao-icone" data-icon="settings" aria-label="Configurações"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo" style="padding-top: 0;">
+      <!-- CTA da US-F2 ("Adotar uma criança / Convidar um amigo") — leva pra
+           subpágina dedicada (convidar-amigo.html: mosaico de histórias,
+           geração do link pessoal e status das indicações já enviadas). -->
+      <a class="cta-destaque" id="botao-adotar-crianca" href="convidar-amigo.html">
+        <div class="icone-selo" data-icon="heart"></div>
+        <div>
+          <strong>Adotar uma criança</strong>
+          <span>Convide um amigo para conhecer uma história real de impacto — e ele decide "apadrinhar" simbolicamente.</span>
+        </div>
+      </a>
+
+      <div class="abas-hub">
+        <button type="button" class="aba-hub ativa" data-aba="resumo">Resumo</button>
+        <button type="button" class="aba-hub" data-aba="marcos">Marcos</button>
+        <button type="button" class="aba-hub" data-aba="transparencia">Transparência</button>
+        <button type="button" class="aba-hub" data-aba="novidades">Novidades</button>
+      </div>
+    </div>
+
+    <div class="corpo" style="padding-top: 4px;">
+      <!-- ===== Aba: Resumo (histórico de doações, já validado desde a US03) ===== -->
+      <div class="painel-aba" data-painel="resumo">
+        <div>
+          <p class="rotulo-secao">Histórico de doações</p>
+          <ul class="lista-doacoes" id="lista-historico" style="list-style:none; padding:0; margin:8px 0 0;">
+            <li class="item-vazio">Carregando...</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ===== Aba: Marcos (US-F1 — selos de tempo/valor) ===== -->
+      <div class="painel-aba" data-painel="marcos" hidden>
+        <div>
+          <p class="rotulo-secao">Marcos de impacto</p>
+          <div id="lista-marcos" style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+            <p class="item-vazio">Carregando...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Aba: Transparência (US-F3 — painel financeiro navegável) ===== -->
+      <div class="painel-aba" data-painel="transparencia" hidden>
+        <p class="rotulo-secao">Painel financeiro</p>
+        <div class="filtro-ano" id="filtro-ano">
+          <button type="button" class="pilula-ano ativa" data-ano="2025">2025</button>
+          <button type="button" class="pilula-ano" data-ano="2026">2026</button>
+        </div>
+        <div id="conteudo-transparencia">
+          <p class="item-vazio">Carregando...</p>
+        </div>
+      </div>
+
+      <!-- ===== Aba: Novidades (US-F3 — feed de relatos) ===== -->
+      <div class="painel-aba" data-painel="novidades" hidden>
+        <p class="rotulo-secao">Novidades do Instituto</p>
+        <div class="feed-relatos" id="feed-relatos" style="margin-top:8px;">
+          <p class="item-vazio">Carregando...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <nav class="abas-inferior">
+      <a class="aba" href="index.html">
+        <span data-icon="home"></span>
+        Início
+      </a>
+      <a class="aba" href="escolha-doacao.html">
+        <span data-icon="plus-circle"></span>
+        Doar
+      </a>
+      <span class="aba ativa">
+        <span data-icon="user"></span>
+        Perfil
+      </span>
+    </nav>
+    <div class="indicador-home"><span></span></div>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  const doadorId = paramUrl("doador");
+  const ROTULOS_FORMA = {
+    pix: "Pix Único",
+    pix_recorrente: "Recorrente",
+    cartao_recorrente: "Recorrente",
+  };
+
+  // ---------- CTA "Adotar uma criança" (US-F2) ----------
+  // Leva pra convidar-amigo.html carregando o doador atual, pra a subpágina
+  // saber de quem são as indicações e poder voltar pra cá depois.
+  if (doadorId) {
+    document.getElementById("botao-adotar-crianca").href = `convidar-amigo.html?doador=${doadorId}`;
+  }
+
+  // ---------- Troca de abas ----------
+  document.querySelectorAll(".aba-hub").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const alvo = botao.dataset.aba;
+      document.querySelectorAll(".aba-hub").forEach((b) => b.classList.toggle("ativa", b === botao));
+      document.querySelectorAll(".painel-aba").forEach((painel) => {
+        painel.hidden = painel.dataset.painel !== alvo;
+      });
+      if (alvo === "marcos") carregarMarcos();
+      if (alvo === "transparencia") carregarTransparencia();
+      if (alvo === "novidades") carregarNovidades();
+    });
+  });
+
+  // ---------- Aba Resumo ----------
+  (async () => {
+    try {
+      const doador = await apiGet(`/api/doadores/${doadorId}`);
+      const primeiroNome = doador.nome.split(" ")[0];
+      document.getElementById("saudacao-nome").textContent = `Olá, ${primeiroNome}`;
+      document.getElementById("avatar-inicial").textContent = primeiroNome.charAt(0).toUpperCase();
+    } catch (erro) {
+      console.error(erro);
+    }
+
+    const lista = document.getElementById("lista-historico");
+    try {
+      const doacoes = await apiGet(`/api/doadores/${doadorId}/doacoes`);
+      lista.innerHTML = "";
+      if (doacoes.length === 0) {
+        lista.innerHTML = '<li class="item-vazio">Nenhuma doação registrada ainda.</li>';
+        return;
+      }
+      for (const doacao of doacoes) {
+        const item = document.createElement("li");
+        item.className = "item-doacao";
+        const data = new Date(doacao.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+        const recorrente = doacao.recorrente ? "recorrente" : "";
+        item.innerHTML = `
+          <div><p class="valor">${formatarMoeda(doacao.valor)}</p><p class="data">${data}</p></div>
+          <span class="selo-forma ${recorrente}">${ROTULOS_FORMA[doacao.forma_pagamento] || doacao.forma_pagamento}</span>
+        `;
+        lista.appendChild(item);
+      }
+    } catch (erro) {
+      console.error(erro);
+    }
+  })();
+
+  // ---------- Aba Marcos (US-F1) ----------
+  const ICONE_POR_TIPO_CONQUISTA = { marco_tempo: "heart", marco_valor: "award" };
+
+  async function carregarMarcos() {
+    const lista = document.getElementById("lista-marcos");
+    lista.innerHTML = '<p class="item-vazio">Carregando...</p>';
+    try {
+      const conquistas = await apiGet(`/api/doadores/${doadorId}/conquistas`);
+      if (conquistas.length === 0) {
+        lista.innerHTML = '<p class="item-vazio">Nenhum selo conquistado ainda — continue doando para desbloquear o primeiro marco.</p>';
+        return;
+      }
+      lista.innerHTML = "";
+      for (const conquista of conquistas) {
+        const [titulo, ...resto] = conquista.descricao.split(":");
+        const cartao = document.createElement("div");
+        cartao.className = "cartao-marco";
+        cartao.innerHTML = `
+          <div class="icone-selo" data-icon="${ICONE_POR_TIPO_CONQUISTA[conquista.tipo] || "heart"}"></div>
+          <div>
+            <strong>${conquista.descricao}</strong>
+          </div>
+        `;
+        lista.appendChild(cartao);
+        cartao.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = icone(
+          el.dataset.icon.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase())
+        )));
+      }
+    } catch (erro) {
+      console.error(erro);
+      lista.innerHTML = '<p class="item-vazio">Não foi possível carregar os marcos agora.</p>';
+    }
+  }
+
+  // ---------- Aba Transparência (US-F3 — painel financeiro) ----------
+  const NOTAS_CATEGORIA = {
+    "Pessoal e Equipe":
+      "Inclui 1 psicóloga contratada e 3 estagiárias de psicologia, conforme o dossiê do módulo (equipe real; valor ainda fictício).",
+  };
+  const ROTULOS_ESG = {
+    esg_governanca: "Governança",
+    esg_estrutura_organizacional: "Estrutura Organizacional",
+    esg_gestao_riscos: "Gestão de Riscos",
+    esg_compliance: "Compliance",
+    esg_ambiental: "Ambiental",
+    esg_social: "Social",
+  };
+
+  let anoSelecionado = "2025";
+  document.querySelectorAll(".pilula-ano").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      anoSelecionado = botao.dataset.ano;
+      document.querySelectorAll(".pilula-ano").forEach((b) => b.classList.toggle("ativa", b === botao));
+      carregarTransparencia();
+    });
+  });
+
+  async function carregarTransparencia() {
+    const container = document.getElementById("conteudo-transparencia");
+    container.innerHTML = '<p class="item-vazio">Carregando...</p>';
+    try {
+      const painel = await apiGet(`/api/painel-financeiro?ano=${anoSelecionado}`);
+      const ind = painel.indicadores || {};
+
+      if (!ind.receita_pf && !ind.receita_pj && painel.despesas.length === 0) {
+        container.innerHTML = `<p class="item-vazio">Dados de ${anoSelecionado} ainda não consolidados.</p>`;
+        return;
+      }
+
+      const avisoHtml = painel.temDadosFicticios
+        ? `<div class="aviso-dados-ficticios">Despesas por categoria: dados fictícios, aguardando a DRE oficial do Instituto (previsão: antes da entrega final).</div>`
+        : "";
+
+      const linhasDespesas = painel.despesas.map((d) => {
+        const temNota = Boolean(NOTAS_CATEGORIA[d.categoria]);
+        if (temNota) {
+          return `
+            <div class="dre-linha-expandivel">
+              <div class="dre-linha"><span>${d.categoria}</span><span class="dre-valor">${formatarMoeda(d.valor)}</span></div>
+              <p class="dre-nota-expandida">${NOTAS_CATEGORIA[d.categoria]}</p>
+            </div>
+          `;
+        }
+        return `<div class="dre-linha"><span>${d.categoria}</span><span class="dre-valor">${formatarMoeda(d.valor)}</span></div>`;
+      }).join("");
+
+      const linhasEsg = Object.entries(ROTULOS_ESG)
+        .filter(([chave]) => chave in ind)
+        .map(([chave, rotulo]) => `<div class="linha-stat"><span class="valor">${ind[chave]}%</span><span class="descricao">${rotulo}</span></div>`)
+        .join("");
+
+      container.innerHTML = `
+        ${avisoHtml}
+        <div class="dre-tabela" style="margin-top:12px;">
+          <p class="dre-cabecalho-grupo">Receitas · dados reais (site institucional, 2025)</p>
+          <div class="dre-linha"><span>Doações Pessoa Física</span><span class="dre-valor">${formatarMoeda(ind.receita_pf || 0)}</span></div>
+          <div class="dre-linha"><span>Doações Pessoa Jurídica</span><span class="dre-valor">${formatarMoeda(ind.receita_pj || 0)}</span></div>
+          <div class="dre-linha dre-total"><span>Total de Receitas</span><span class="dre-valor">${formatarMoeda(painel.receitaTotal)}</span></div>
+
+          <p class="dre-cabecalho-grupo">Despesas · dados fictícios (placeholder)</p>
+          ${linhasDespesas || '<p class="item-vazio">Sem despesas cadastradas para este ano.</p>'}
+          <div class="dre-linha dre-total"><span>Total de Despesas</span><span class="dre-valor">${formatarMoeda(painel.despesaTotal)}</span></div>
+
+          <div class="dre-linha dre-resultado"><span>Resultado do Exercício</span><span class="dre-valor">${formatarMoeda(painel.resultado)}</span></div>
+        </div>
+
+        ${painel.despesas.length > 0 ? `
+        <div class="grafico-despesas" style="margin-top:16px;">
+          <p class="titulo-grafico">Despesas por categoria</p>
+          ${painel.despesas.map((d) => {
+            const maior = Math.max(...painel.despesas.map((x) => x.valor));
+            const pct = Math.max(4, Math.round((d.valor / maior) * 100));
+            return `
+              <div class="barra-despesa">
+                <span class="rotulo-barra">${d.categoria} — ${formatarMoeda(d.valor)}</span>
+                <div class="trilho-barra"><div class="preenchimento-barra" style="width:${pct}%"></div></div>
+              </div>
+            `;
+          }).join("")}
+        </div>` : ""}
+
+        ${ind.esg_score ? `
+        <div class="cartao-esg" style="margin-top:16px;">
+          <div class="anel-progresso" style="--pct:${ind.esg_score};"><span>${ind.esg_score}%</span></div>
+          <div>
+            <p class="titulo-esg">Rating de Impacto ESG</p>
+            <p class="desc-esg">Certificado pela Phomenta. Nossos processos seguem altos padrões de governança e ética.</p>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <p class="rotulo-secao">ESG por Dimensão</p>
+          <div style="margin-top:8px;">${linhasEsg}</div>
+        </div>` : ""}
+
+        ${ind.custo_por_aluno_mes ? `
+        <div class="cartao-custo" style="margin-top:16px;">
+          <div class="icone-caixa" data-icon="bar-chart-2"></div>
+          <div>
+            <p class="rotulo">Custo real por aluno</p>
+            <p class="valor">${formatarMoeda(ind.custo_por_aluno_mes)} / mês</p>
+          </div>
+        </div>` : ""}
+      `;
+
+      container.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = icone(
+        el.dataset.icon.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase())
+      )));
+
+      container.querySelectorAll(".dre-linha-expandivel").forEach((linha) => {
+        const nota = linha.querySelector(".dre-nota-expandida");
+        linha.addEventListener("click", () => {
+          nota.hidden = !nota.hidden;
+        });
+      });
+    } catch (erro) {
+      console.error(erro);
+      container.innerHTML = '<p class="item-vazio">Não foi possível carregar o painel financeiro agora.</p>';
+    }
+  }
+
+  // ---------- Aba Novidades (US-F3 — feed de relatos) ----------
+  async function carregarNovidades() {
+    const container = document.getElementById("feed-relatos");
+    container.innerHTML = '<p class="item-vazio">Carregando...</p>';
+    try {
+      const relatos = await apiGet("/api/relatos");
+      if (relatos.length === 0) {
+        container.innerHTML = '<p class="item-vazio">Nenhuma novidade publicada ainda.</p>';
+        return;
+      }
+      container.innerHTML = relatos.map((relato) => {
+        const data = new Date(relato.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+        return `
+          <div class="relato-card">
+            <div class="thumb-relato">[Foto: ${relato.titulo} — não pôde ser baixada do Figma neste ambiente]</div>
+            <div class="texto-relato">
+              <span class="data-relato">${data.toUpperCase()}</span>
+              <p class="titulo-relato">${relato.titulo}</p>
+              <p class="desc-relato">${relato.texto}</p>
+            </div>
+          </div>
+        `;
+      }).join("");
+    } catch (erro) {
+      console.error(erro);
+      container.innerHTML = '<p class="item-vazio">Não foi possível carregar as novidades agora.</p>';
+    }
+  }
+</script>
+</body>
+</html>

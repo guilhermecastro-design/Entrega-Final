@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Documentos da parceria — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="header-app">
+    <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
+    <span class="titulo">Documentos da parceria</span>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo">
+      <p style="color:var(--texto-mudo); font-size:14px; margin:0;">
+        Tudo o que sua empresa precisa para validar a parceria, em um único local — sempre com a data da última atualização.
+      </p>
+
+      <!-- Documentos institucionais: conteúdo estático (a lista real de PDFs
+           não faz parte do escopo de dados deste MVP). -->
+      <div class="cartao-doc">
+        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+          <div><p class="nome-doc">Relatório Anual (2023–2025)</p><p class="data-doc">Atualizado em 15/03/2026</p></div>
+        </div>
+        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
+      </div>
+      <div class="cartao-doc">
+        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+          <div><p class="nome-doc">DRE (2023–2024)</p><p class="data-doc">Atualizado em 15/03/2026</p></div>
+        </div>
+        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
+      </div>
+      <div class="cartao-doc">
+        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+          <div><p class="nome-doc">ESG Score — 72%</p><p class="data-doc">Atualizado em 01/02/2026</p></div>
+        </div>
+        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
+      </div>
+      <div class="cartao-doc">
+        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+          <div><p class="nome-doc">Código de Ética e Conduta</p><p class="data-doc">Publicado em 2026</p></div>
+        </div>
+        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
+      </div>
+      <div class="cartao-doc">
+        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+          <div><p class="nome-doc">Estatuto Social</p><p class="data-doc">Publicado em 2021</p></div>
+        </div>
+        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
+      </div>
+      <div class="cartao-doc">
+        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+          <div><p class="nome-doc">Ata de Eleição</p><p class="data-doc">Publicado em 2025</p></div>
+        </div>
+        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Resultado Financeiro 2025</p>
+        <div class="linha-stat"><span class="valor" style="width:130px;">R$145.019</span><span class="descricao">Total de despesas em 2025 (+11,5% vs 2024)</span></div>
+        <div class="linha-stat"><span class="valor" style="width:130px;">R$31.735</span><span class="descricao">Superávit do período (+15.485,9% vs 2024)</span></div>
+      </div>
+
+      <div class="campo-lookup">
+        <label for="campo-doador-id">ID do doador (PJ) — sem login neste MVP, ver nota abaixo</label>
+        <input type="number" id="campo-doador-id" placeholder="Ex.: 2" value="2" />
+        <p class="nota-lookup">Fora de escopo deste MVP: em produção, este passo seria substituído por login/identificação real da empresa parceira.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <button type="button" class="botao-cta">Baixar todos os documentos</button>
+    <button type="button" class="link-agora-nao" id="botao-comprovantes" style="text-decoration:none; color:var(--verde);">Ver comprovantes de doação</button>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  document.getElementById("botao-comprovantes").addEventListener("click", () => {
+    const id = document.getElementById("campo-doador-id").value;
+    window.location.href = `comprovante-doacao.html?doador=${id}`;
+  });
+</script>
+</body>
+</html>

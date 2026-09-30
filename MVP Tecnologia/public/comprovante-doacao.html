@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Comprovantes de doação — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="header-app">
+    <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
+    <span class="titulo">Comprovantes de doação</span>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo">
+      <div class="cartao-empresa">
+        <div class="icone-doc" data-icon="building"></div>
+        <div class="info-doc" id="info-empresa">
+          <p class="nome-doc">Carregando...</p>
+        </div>
+      </div>
+
+      <p class="rotulo-secao" style="text-transform:none; color:var(--texto); font-size:15px;">Comprovantes disponíveis</p>
+
+      <ul class="lista-comprovantes" id="lista-comprovantes" style="list-style:none; padding:0; margin:0;">
+        <li class="item-vazio">Carregando...</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <button type="button" class="botao-cta">Baixar comprovante consolidado (PDF)</button>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  const doadorId = paramUrl("doador");
+  const ROTULOS_FORMA = {
+    pix: "Avulso",
+    pix_recorrente: "Mensal",
+    cartao_recorrente: "Mensal",
+  };
+
+  (async () => {
+    const infoEmpresa = document.getElementById("info-empresa");
+    try {
+      const doador = await apiGet(`/api/doadores/${doadorId}`);
+      infoEmpresa.innerHTML = `<p class="nome-doc">${doador.nome}</p><p class="data-doc">${doador.cpf_cnpj || "sem CNPJ cadastrado"}</p>`;
+    } catch (erro) {
+      infoEmpresa.innerHTML = '<p class="nome-doc">Doador não encontrado.</p>';
+    }
+
+    const lista = document.getElementById("lista-comprovantes");
+    try {
+      const doacoes = await apiGet(`/api/doadores/${doadorId}/doacoes`);
+      lista.innerHTML = "";
+      if (doacoes.length === 0) {
+        lista.innerHTML = '<li class="item-vazio">Nenhum comprovante encontrado.</li>';
+        return;
+      }
+      for (const doacao of doacoes) {
+        const item = document.createElement("li");
+        item.className = "item-comprovante";
+        const data = new Date(doacao.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+        item.innerHTML = `
+          <div><p class="valor" style="margin:0;">${formatarMoeda(doacao.valor)}</p><p class="data" style="margin:2px 0 0;">${data}</p></div>
+          <div class="direita">
+            <span class="selo-forma">${ROTULOS_FORMA[doacao.forma_pagamento] || doacao.forma_pagamento}</span>
+            <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar comprovante #${doacao.id}"></button>
+          </div>
+        `;
+        lista.appendChild(item);
+      }
+      // Ícones inseridos dinamicamente após o carregamento inicial dos
+      // comprovantes precisam ser preenchidos manualmente (o preenchimento
+      // automático de icons.js roda só uma vez, no DOMContentLoaded).
+      lista.querySelectorAll("[data-icon]").forEach((el) => {
+        el.innerHTML = icone("download");
+      });
+    } catch (erro) {
+      console.error(erro);
+    }
+  })();
+</script>
+</body>
+</html>

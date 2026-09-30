@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Convidar um amigo — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="header-app">
+    <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
+    <span class="titulo">Convidar um amigo</span>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo" style="gap: 24px;">
+      <div>
+        <p class="rotulo-secao" style="text-transform:none; color:var(--texto); font-size:16px; margin-bottom: 8px;">
+          Escolha uma história para compartilhar
+        </p>
+        <p class="paragrafo-intro">
+          Cada história é de uma criança atendida pelo Instituto. Escolha uma e compartilhe um link pessoal — seu amigo vê
+          só aquela história, com um convite para "apadrinhar" simbolicamente com uma doação.
+        </p>
+      </div>
+
+      <div class="aviso-dados-ficticios">
+        Por proteção às crianças atendidas (ECA/LGPD), usamos apelidos fictícios — nunca nome ou foto real. A adoção é só
+        simbólica: a doação vai para o Instituto como um todo.
+      </div>
+
+      <div>
+        <div class="feed-relatos" id="mosaico-historias">
+          <p class="item-vazio">Carregando...</p>
+        </div>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Minhas indicações</p>
+        <div class="lista-doacoes" id="lista-indicacoes" style="margin-top: 8px;">
+          <p class="item-vazio">Carregando...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <nav class="abas-inferior">
+      <a class="aba" href="index.html">
+        <span data-icon="home"></span>
+        Início
+      </a>
+      <a class="aba" href="escolha-doacao.html">
+        <span data-icon="plus-circle"></span>
+        Doar
+      </a>
+      <span class="aba ativa">
+        <span data-icon="user"></span>
+        Perfil
+      </span>
+    </nav>
+    <div class="indicador-home"><span></span></div>
+  </div>
+
+  <div class="copiado-flutuante" id="aviso-copiado">Link copiado!</div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  const doadorId = paramUrl("doador");
+
+  function mostrarCopiado() {
+    const aviso = document.getElementById("aviso-copiado");
+    aviso.classList.add("visivel");
+    setTimeout(() => aviso.classList.remove("visivel"), 2200);
+  }
+
+  async function compartilharHistoria(historiaId, apelido, botao) {
+    if (!doadorId) {
+      alert("Não foi possível identificar sua conta de doador. Acesse esta página a partir da sua área do doador.");
+      return;
+    }
+    const textoOriginal = botao.textContent;
+    botao.disabled = true;
+    botao.textContent = "Gerando link...";
+    try {
+      const indicacao = await apiPost("/api/indicacoes", { doador_id: Number(doadorId), historia_id: historiaId });
+      const link = `${window.location.origin}/apadrinhar.html?indicacao=${indicacao.id}`;
+      const textoCompartilhamento = `Oi! Eu doo pro Instituto Ebenézer e quis te convidar a conhecer a história de "${apelido}" — dá uma olhada: ${link}`;
+
+      if (navigator.share) {
+        await navigator.share({ title: "Instituto Ebenézer", text: textoCompartilhamento, url: link });
+      } else {
+        await navigator.clipboard.writeText(link);
+        mostrarCopiado();
+      }
+      await carregarIndicacoes();
+    } catch (erro) {
+      if (erro.name !== "AbortError") {
+        console.error(erro);
+        alert("Não foi possível gerar o link agora. Tente novamente.");
+      }
+    } finally {
+      botao.disabled = false;
+      botao.textContent = textoOriginal;
+    }
+  }
+
+  async function carregarMosaico() {
+    const container = document.getElementById("mosaico-historias");
+    try {
+      const historias = await apiGet("/api/historias");
+      if (historias.length === 0) {
+        container.innerHTML = '<p class="item-vazio">Nenhuma história disponível no momento.</p>';
+        return;
+      }
+      container.innerHTML = "";
+      historias.forEach((h) => {
+        const card = document.createElement("div");
+        card.className = "relato-card";
+        card.innerHTML = `
+          <div class="thumb-relato">[Foto: ${h.apelido} — não pôde ser baixada do Figma neste ambiente]</div>
+          <div class="texto-relato">
+            <span class="selo-forma">${h.faixa_etaria}</span>
+            <p class="titulo-relato">${h.apelido}</p>
+            <p class="desc-relato">${h.descricao}</p>
+            <button type="button" class="botao-cta botao-compartilhar">Compartilhar essa história</button>
+          </div>
+        `;
+        card.querySelector(".botao-compartilhar").addEventListener("click", (evento) => {
+          compartilharHistoria(h.id, h.apelido, evento.currentTarget);
+        });
+        container.appendChild(card);
+      });
+    } catch (erro) {
+      console.error(erro);
+      container.innerHTML = '<p class="item-vazio">Não foi possível carregar as histórias agora.</p>';
+    }
+  }
+
+  async function carregarIndicacoes() {
+    const container = document.getElementById("lista-indicacoes");
+    if (!doadorId) {
+      container.innerHTML = '<p class="item-vazio">Entre pela sua área do doador para ver suas indicações.</p>';
+      return;
+    }
+    try {
+      const indicacoes = await apiGet(`/api/doadores/${doadorId}/indicacoes`);
+      if (indicacoes.length === 0) {
+        container.innerHTML = '<p class="item-vazio">Você ainda não indicou nenhuma história.</p>';
+        return;
+      }
+      container.innerHTML = "";
+      indicacoes.forEach((ind) => {
+        const item = document.createElement("div");
+        item.className = "item-doacao";
+        const confirmada = ind.status === "encontrou_padrinho";
+        item.innerHTML = `
+          <div>
+            <p class="valor">${ind.apelido}</p>
+            <p class="data">Link enviado</p>
+          </div>
+          <span class="selo-forma${confirmada ? " recorrente" : ""}">${confirmada ? "Encontrou um padrinho!" : "Pendente"}</span>
+        `;
+        container.appendChild(item);
+      });
+    } catch (erro) {
+      console.error(erro);
+      container.innerHTML = '<p class="item-vazio">Não foi possível carregar suas indicações agora.</p>';
+    }
+  }
+
+  carregarMosaico();
+  carregarIndicacoes();
+</script>
+</body>
+</html>

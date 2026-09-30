@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Doação mensal — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="header-app">
+    <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
+    <span class="titulo">Doação mensal</span>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo">
+      <div class="resumo-recorrente">
+        <div>
+          <p class="rotulo-pequeno">Apoio Recorrente Selecionado</p>
+          <p class="valor-grande" id="valor-resumo">R$ 95,00 / mês</p>
+        </div>
+        <button type="button" id="botao-alterar">Alterar</button>
+      </div>
+
+      <!-- Campos de cartão são só visuais/simulados: não há processamento real
+           de pagamento neste MVP, então nada aqui é enviado pro back-end. -->
+      <div class="form-cartao">
+        <div class="campo-form">
+          <label for="campo-nome">Nome completo (titular do cartão)</label>
+          <input type="text" id="campo-nome" placeholder="Renata de Souza Silva" />
+        </div>
+        <div class="campo-form">
+          <label for="campo-email">E-mail</label>
+          <input type="email" id="campo-email" placeholder="renata.silva@email.com" />
+        </div>
+        <div class="campo-form">
+          <label for="campo-numero">Número do cartão</label>
+          <div class="campo-com-icone">
+            <span data-icon="credit-card"></span>
+            <input type="text" id="campo-numero" placeholder="4431 •••• •••• 9081" maxlength="19" />
+          </div>
+        </div>
+        <div class="linha-form">
+          <div class="campo-form">
+            <label for="campo-validade">Validade</label>
+            <input type="text" id="campo-validade" placeholder="11/30" maxlength="5" />
+          </div>
+          <div class="campo-form">
+            <label for="campo-cvv">CVV</label>
+            <input type="text" id="campo-cvv" placeholder="***" maxlength="3" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <button type="button" class="botao-cta" id="botao-confirmar">Confirmar doação recorrente</button>
+    <p class="mensagem-erro" id="mensagem-erro"></p>
+    <div class="indicador-home"><span></span></div>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  const valor = Number(paramUrl("valor"));
+  document.getElementById("valor-resumo").textContent = valor ? `${formatarMoeda(valor)} / mês` : "Valor não informado";
+
+  document.getElementById("botao-alterar").addEventListener("click", () => history.back());
+
+  document.getElementById("botao-confirmar").addEventListener("click", async () => {
+    try {
+      const doacao = await apiPost("/api/doacoes", {
+        valor,
+        forma_pagamento: "cartao_recorrente",
+        recorrente: true,
+      });
+      await confirmarIndicacaoSeNecessario(doacao.id);
+      window.location.href = `confirmacao.html?doacao=${doacao.id}`;
+    } catch (erro) {
+      document.getElementById("mensagem-erro").textContent = erro.message;
+    }
+  });
+</script>
+</body>
+</html>

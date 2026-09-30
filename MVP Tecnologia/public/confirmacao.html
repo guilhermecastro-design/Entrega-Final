@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Confirmação — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo">
+      <div class="selo-sucesso" data-icon="check-circle"></div>
+
+      <div class="saudacao">
+        <h1 id="titulo-saudacao">Obrigado pela sua doação!</h1>
+        <p>Sua doação já está ativa e ajudando a transformar vidas por meio da educação.</p>
+      </div>
+
+      <div class="cartao-resumo">
+        <p class="rotulo-secao">Resumo da doação</p>
+        <div class="linha-resumo"><span class="rotulo">Valor</span><span class="valor" id="resumo-valor">—</span></div>
+        <div class="linha-resumo"><span class="rotulo">Frequência</span><span class="valor" id="resumo-frequencia">—</span></div>
+        <div class="linha-resumo"><span class="rotulo">Forma de Envio</span><span class="valor" id="resumo-forma">—</span></div>
+        <div class="linha-resumo"><span class="rotulo">Início</span><span class="valor">Imediato</span></div>
+      </div>
+
+      <form id="form-conta" class="formulario-conta" hidden>
+        <div class="campo-form">
+          <label for="campo-nome">Nome</label>
+          <input type="text" id="campo-nome" required />
+        </div>
+        <div class="campo-form">
+          <label for="campo-email">E-mail</label>
+          <input type="email" id="campo-email" required />
+        </div>
+        <div class="campo-form">
+          <label for="campo-tipo">Tipo</label>
+          <select id="campo-tipo">
+            <option value="PF">Pessoa física</option>
+            <option value="PJ">Pessoa jurídica</option>
+          </select>
+        </div>
+        <button type="submit" class="botao-cta" style="margin-top:12px;">Criar conta</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="rodape" id="bloco-inicial" style="align-items:center;">
+    <button type="button" class="botao-cta" id="botao-criar-conta">Criar minha área do doador</button>
+    <button type="button" class="link-agora-nao" id="botao-agora-nao">Agora não</button>
+    <p class="mensagem-erro" id="mensagem-erro"></p>
+    <div class="indicador-home"><span></span></div>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  const doacaoId = paramUrl("doacao");
+  const ROTULOS_FORMA = {
+    pix: "Pix (avulso)",
+    pix_recorrente: "Pix Automático",
+    cartao_recorrente: "Cartão de Crédito",
+  };
+  const FREQUENCIA = {
+    pix: "Única",
+    pix_recorrente: "Mensal (Recorrente)",
+    cartao_recorrente: "Mensal (Recorrente)",
+  };
+
+  (async () => {
+    try {
+      const doacao = await apiGet(`/api/doacoes/${doacaoId}`);
+      document.getElementById("resumo-valor").textContent = formatarMoeda(doacao.valor);
+      document.getElementById("resumo-frequencia").textContent = FREQUENCIA[doacao.forma_pagamento] || "—";
+      document.getElementById("resumo-forma").textContent = ROTULOS_FORMA[doacao.forma_pagamento] || doacao.forma_pagamento;
+    } catch (erro) {
+      document.getElementById("resumo-valor").textContent = "Não foi possível carregar.";
+    }
+  })();
+
+  document.getElementById("botao-agora-nao").addEventListener("click", () => {
+    window.location.href = "index.html";
+  });
+
+  document.getElementById("botao-criar-conta").addEventListener("click", () => {
+    document.getElementById("bloco-inicial").hidden = true;
+    document.getElementById("form-conta").hidden = false;
+  });
+
+  document.getElementById("form-conta").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    try {
+      const doador = await apiPost("/api/doadores", {
+        nome: document.getElementById("campo-nome").value.trim(),
+        email: document.getElementById("campo-email").value.trim(),
+        tipo: document.getElementById("campo-tipo").value,
+        doacao_id: doacaoId,
+      });
+      window.location.href = `area-doador.html?doador=${doador.id}`;
+    } catch (erro) {
+      alert(erro.message);
+    }
+  });
+</script>
+</body>
+</html>

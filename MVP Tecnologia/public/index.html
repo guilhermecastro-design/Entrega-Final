@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Instituto Ebenézer — Início</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="brand-header">
+    <div class="logo">
+      <div class="logo-marca" data-icon="book-open"></div>
+      <span class="nome">Ebenézer</span>
+    </div>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="hero">
+      <span class="legenda-foto">[Foto: sala de aula — não pôde ser baixada do Figma neste ambiente]</span>
+      <div class="hero-conteudo">
+        <h1>Transformando vidas através da educação</h1>
+        <p>Apoiamos o futuro de centenas de crianças carentes no Brasil com reforço escolar, alimentação e acolhimento familiar.</p>
+      </div>
+    </div>
+
+    <div class="corpo">
+      <div class="cartao-destaque">
+        <div class="icone-selo" data-icon="award"></div>
+        <div>
+          <strong id="valor-destaque">R$ 93,68 / mês</strong>
+          <span>Garante educação e alimentação completa para uma criança.</span>
+        </div>
+      </div>
+
+      <button type="button" class="botao-cta" id="botao-ajudar">Quero ajudar agora</button>
+      <button type="button" class="link-transparencia" id="botao-transparencia">
+        <span data-icon="shield-check"></span>
+        Ver transparência completa
+      </button>
+    </div>
+  </div>
+
+  <div class="indicador-home"><span></span></div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  document.getElementById("botao-ajudar").addEventListener("click", () => {
+    window.location.href = "escolha-doacao.html";
+  });
+  document.getElementById("botao-transparencia").addEventListener("click", () => {
+    window.location.href = "transparencia.html";
+  });
+
+  (async () => {
+    try {
+      const resumo = await apiGet("/api/resumo");
+      if (resumo.totalArrecadado > 0) {
+        document.getElementById("valor-destaque").parentElement.querySelector("span").textContent =
+          `${formatarMoeda(resumo.totalArrecadado)} arrecadados até agora, com ${resumo.totalDoadores} doador(es) cadastrado(s).`;
+      }
+    } catch (erro) {
+      console.error(erro);
+    }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Escolha como ajudar — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="header-app">
+    <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
+    <span class="titulo">Escolha como ajudar</span>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo">
+      <div>
+        <p class="rotulo-secao" style="text-transform:none; color:var(--texto); font-size:16px;">Qual valor deseja doar?</p>
+        <div class="chips-valor" style="margin-top:12px;">
+          <button type="button" class="chip-valor" data-valor="30">
+            <span class="valor-num">R$ 30</span>
+            <span class="valor-desc">Material básico</span>
+          </button>
+          <button type="button" class="chip-valor selecionado" data-valor="95">
+            <span class="valor-num">R$ 95</span>
+            <span class="valor-desc">1 Aluno / mês</span>
+          </button>
+          <button type="button" class="chip-valor" data-valor="outro">
+            <span class="valor-num">Outro</span>
+            <span class="valor-desc">Qualquer valor</span>
+          </button>
+        </div>
+        <input type="number" id="campo-outro-valor" class="campo-outro-valor" min="1" step="1" placeholder="Digite o valor" hidden
+          style="width:100%; padding:12px; border:1px solid var(--borda); border-radius:12px; font-family:'Manrope',sans-serif; font-size:14px;" />
+      </div>
+
+      <div class="bloco-recorrente">
+        <div>
+          <p class="titulo-bloco">Doação recorrente (mensal)</p>
+          <p class="desc-bloco">Apoie continuamente nossos alunos — escolha como.</p>
+        </div>
+        <button type="button" class="opcao-recorrente" id="botao-pix-recorrente">
+          <p class="titulo-opcao">Via Pix (automático)</p>
+          <p class="desc-opcao">Cobrança automática todo mês, sem precisar lembrar.</p>
+        </button>
+        <button type="button" class="opcao-recorrente" id="botao-cartao-recorrente">
+          <p class="titulo-opcao">Via Cartão de crédito</p>
+          <p class="desc-opcao">Assinatura mensal com cartão salvo.</p>
+        </button>
+      </div>
+
+      <div class="reassurance">
+        <span data-icon="lock"></span>
+        <span>Sua doação é segura, protegida e criptografada de ponta a ponta.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <button type="button" class="botao-cta" id="botao-pix-avulso">Doar uma vez</button>
+    <div class="indicador-home"><span></span></div>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  const chips = document.querySelectorAll(".chip-valor");
+  const campoOutro = document.getElementById("campo-outro-valor");
+  let valorSelecionado = 95;
+
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.remove("selecionado"));
+      chip.classList.add("selecionado");
+      if (chip.dataset.valor === "outro") {
+        campoOutro.hidden = false;
+        campoOutro.focus();
+        valorSelecionado = null;
+      } else {
+        campoOutro.hidden = true;
+        valorSelecionado = Number(chip.dataset.valor);
+      }
+    });
+  });
+
+  campoOutro.addEventListener("input", () => {
+    valorSelecionado = Number(campoOutro.value);
+  });
+
+  function valorEscolhido() {
+    if (!valorSelecionado || valorSelecionado <= 0) {
+      alert("Escolha ou digite um valor de doação válido.");
+      return null;
+    }
+    return valorSelecionado;
+  }
+
+  document.getElementById("botao-pix-recorrente").addEventListener("click", () => {
+    const valor = valorEscolhido();
+    if (valor) window.location.href = comIndicacao(`checkout-pix-recorrente.html?valor=${valor}`);
+  });
+  document.getElementById("botao-cartao-recorrente").addEventListener("click", () => {
+    const valor = valorEscolhido();
+    if (valor) window.location.href = comIndicacao(`checkout-recorrente.html?valor=${valor}`);
+  });
+  document.getElementById("botao-pix-avulso").addEventListener("click", () => {
+    const valor = valorEscolhido();
+    if (valor) window.location.href = comIndicacao(`checkout-pix.html?valor=${valor}`);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nossa transparência — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="tela">
+  <div class="status-bar">
+    <span class="hora">9:41</span>
+    <div class="icones">
+      <span data-icon="signal"></span>
+      <span data-icon="wifi"></span>
+      <span data-icon="battery"></span>
+    </div>
+  </div>
+
+  <div class="header-app">
+    <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
+    <span class="titulo">Nossa transparência</span>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo">
+      <div class="cartao-esg">
+        <div class="anel-progresso" style="--pct:72;"><span>72%</span></div>
+        <div>
+          <p class="titulo-esg">Rating de Impacto ESG</p>
+          <p class="desc-esg">Certificado pela Phomenta. Nossos processos seguem altos padrões de governança e ética.</p>
+        </div>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">ESG por Dimensão</p>
+        <div class="linha-stat"><span class="valor">88%</span><span class="descricao">Governança</span></div>
+        <div class="linha-stat"><span class="valor">100%</span><span class="descricao">Estrutura Organizacional</span></div>
+        <div class="linha-stat"><span class="valor">75%</span><span class="descricao">Gestão de Riscos</span></div>
+        <div class="linha-stat"><span class="valor">75%</span><span class="descricao">Compliance</span></div>
+        <div class="linha-stat"><span class="valor">50%</span><span class="descricao">Ambiental</span></div>
+        <div class="linha-stat"><span class="valor">50%</span><span class="descricao">Social</span></div>
+      </div>
+
+      <div class="cartao-custo">
+        <div class="icone-caixa" data-icon="bar-chart-2"></div>
+        <div>
+          <p class="rotulo">Custo real por aluno</p>
+          <p class="valor" id="custo-aluno">R$ 93,68 / mês</p>
+        </div>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Eficiência em Números</p>
+        <div class="linha-stat"><span class="valor">87%</span><span class="descricao">Dos recursos diretamente para as salas de aula</span></div>
+        <div class="linha-stat"><span class="valor">+420</span><span class="descricao">Crianças atendidas no último ano letivo</span></div>
+        <div class="linha-stat"><span class="valor">12 anos</span><span class="descricao">De atuação ininterrupta com apoio da comunidade</span></div>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Conselho Diretor</p>
+        <div class="lista-conselho">
+          <p class="nome">Ueliton Moreira Rocha</p>
+          <p class="cargo">Presidente</p>
+          <p class="nome">Andre Pereira</p>
+          <p class="cargo">Tesoureiro Geral</p>
+          <p class="nome">Helena Guardiano de Sá</p>
+          <p class="cargo">Secretária</p>
+        </div>
+        <a class="nota-rodape" href="documentos-empresa.html" style="text-decoration: underline; cursor: pointer;">+ Conselho Fiscal (3 membros) e Conselho Consultivo (4 membros) no relatório completo.</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <button type="button" class="botao-cta" id="botao-doar">Quero doar agora</button>
+    <div class="indicador-home"><span></span></div>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  document.getElementById("botao-doar").addEventListener("click", () => {
+    window.location.href = "escolha-doacao.html";
+  });
+
+  (async () => {
+    try {
+      const indicadores = await apiGet("/api/indicadores");
+      const custo = indicadores.find((i) => i.tipo === "custo_por_aluno_mes");
+      if (custo) {
+        document.getElementById("custo-aluno").textContent = `${formatarMoeda(custo.valor)} / mês`;
+      }
+    } catch (erro) {
+      console.error(erro);
+    }
+  })();
+</script>
+</body>
+</html>
