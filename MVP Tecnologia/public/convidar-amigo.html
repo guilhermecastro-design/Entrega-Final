@@ -6,17 +6,11 @@
 <title>Convidar um amigo — Instituto Ebenézer</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<!-- Layout desktop (05/10/2026): ver nota em area-doador.html — mesma
+     classe, chrome genérico (sidebar fixa + canvas cheio). Confirmado com
+     o usuário pra todas as telas do MVP, sem exceção. -->
+<body class="layout-desktop">
 <div class="tela">
-  <div class="status-bar">
-    <span class="hora">9:41</span>
-    <div class="icones">
-      <span data-icon="signal"></span>
-      <span data-icon="wifi"></span>
-      <span data-icon="battery"></span>
-    </div>
-  </div>
-
   <div class="header-app">
     <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
     <span class="titulo">Convidar um amigo</span>
@@ -85,6 +79,16 @@
   // quebrava se a página fosse aberta direto (bug real encontrado).
   let doadorId = null;
 
+  // Ilustrações (não fotográficas) pras 3 histórias fictícias — uma gerada
+  // por IA no mesmo estilo da ilustração real do Figma (Leitor Curioso), já
+  // que nenhuma foto de rosto real deve representar uma identidade inventada
+  // vinculada a uma indicação de doação (ver nota em js/icons.js).
+  const IMAGENS_HISTORIA = {
+    futebol: "img/historia-estrela-futebol.jpg",
+    paleta: "img/historia-pequena-artista.jpg",
+    bookOpen: "img/historia-leitor-curioso.png",
+  };
+
   function mostrarCopiado() {
     const aviso = document.getElementById("aviso-copiado");
     aviso.classList.add("visivel");
@@ -138,7 +142,7 @@
         const card = document.createElement("div");
         card.className = "relato-card";
         card.innerHTML = `
-          <div class="thumb-relato">[Foto: ${h.apelido} — não pôde ser baixada do Figma neste ambiente]</div>
+          <div class="thumb-relato"><img src="${IMAGENS_HISTORIA[h.icone_tema] || ''}" alt="${h.apelido}" style="width:100%;height:100%;object-fit:cover;display:block;" /></div>
           <div class="texto-relato">
             <span class="selo-forma">${h.faixa_etaria}</span>
             <p class="titulo-relato">${h.apelido}</p>

@@ -6,17 +6,11 @@
 <title>Nossa transparência — Instituto Ebenézer</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<!-- Layout desktop (05/10/2026): ver nota em area-doador.html — mesma
+     classe, chrome genérico (sidebar fixa + canvas cheio). Confirmado com
+     o usuário pra todas as telas do MVP, sem exceção. -->
+<body class="layout-desktop">
 <div class="tela">
-  <div class="status-bar">
-    <span class="hora">9:41</span>
-    <div class="icones">
-      <span data-icon="signal"></span>
-      <span data-icon="wifi"></span>
-      <span data-icon="battery"></span>
-    </div>
-  </div>
-
   <div class="header-app">
     <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
     <span class="titulo">Nossa transparência</span>
@@ -68,7 +62,51 @@
           <p class="nome">Helena Guardiano de Sá</p>
           <p class="cargo">Secretária</p>
         </div>
-        <a class="nota-rodape" href="documentos-empresa.html" style="text-decoration: underline; cursor: pointer;">+ Conselho Fiscal (3 membros) e Conselho Consultivo (4 membros) no relatório completo.</a>
+        <a class="nota-rodape" href="nosso-time.html" style="text-decoration: underline; cursor: pointer;">+ Conselho Fiscal (3 membros) e Conselho Consultivo (4 membros) no Nosso Time.</a>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Resultado financeiro 2025</p>
+        <div class="linha-stat"><span class="valor" style="width:150px;" id="valor-receita">—</span><span class="descricao">Receita total (+35,8% vs 2024)</span></div>
+        <div class="linha-stat"><span class="valor" style="width:150px;" id="valor-despesa">—</span><span class="descricao">Despesas totais (+15,0% vs 2024)</span></div>
+        <div class="linha-stat"><span class="valor" style="width:150px;" id="valor-superavit">—</span><span class="descricao">Superávit do período</span></div>
+        <div class="linha-stat"><span class="valor" style="width:150px;" id="valor-nao-monetarios">—</span><span class="descricao">Recursos não-monetários (voluntariado e bens/serviços)</span></div>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Balanço Patrimonial (2025 vs 2024)</p>
+        <div class="dre-tabela">
+          <div class="dre-linha-expandivel">
+            <div class="dre-linha"><span>Ativo Circulante</span><span class="dre-valor" id="valor-ativo">—</span></div>
+            <p class="dre-nota-expandida" id="nota-ativo">Carregando comparação com 2024…</p>
+          </div>
+          <div class="dre-linha-expandivel">
+            <div class="dre-linha"><span>Passivo Circulante</span><span class="dre-valor" id="valor-passivo">—</span></div>
+            <p class="dre-nota-expandida" id="nota-passivo">Carregando comparação com 2024…</p>
+          </div>
+          <div class="dre-linha-expandivel">
+            <div class="dre-linha dre-total"><span>Patrimônio Líquido</span><span class="dre-valor" id="valor-pl">—</span></div>
+            <p class="dre-nota-expandida" id="nota-pl">Carregando comparação com 2024…</p>
+          </div>
+        </div>
+        <p class="nota-rodape" style="margin-top:4px;">Toque numa linha pra ver a comparação com o ano anterior.</p>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Documentos e prestação de contas</p>
+        <a class="cartao-doc" href="https://drive.google.com/file/d/1H3MYl8UXlKWcxlp4Ccw1rnYxAonDhRdL/view" target="_blank" rel="noopener">
+          <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+            <div><p class="nome-doc">Relatório Anual de Impacto 2025</p><p class="data-doc">PDF · 51 páginas</p></div>
+          </div>
+          <span class="botao-baixar" data-icon="download" aria-label="Abrir"></span>
+        </a>
+        <a class="cartao-doc" href="https://drive.google.com/drive/u/0/folders/1_3cL6q9gJtdw89bERhNE_bgVD1migfWt" target="_blank" rel="noopener">
+          <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+            <div><p class="nome-doc">Balanço, DRE e demais relatórios</p><p class="data-doc">Pasta pública do Instituto no Google Drive</p></div>
+          </div>
+          <span class="botao-baixar" data-icon="download" aria-label="Abrir"></span>
+        </a>
+        <p class="nota-rodape" style="margin-top:4px;">Estes dois links apontam direto para os documentos publicados pelo Instituto — não hospedamos cópia própria, pra sempre refletir a versão mais atual.</p>
       </div>
     </div>
   </div>
@@ -90,10 +128,53 @@
   (async () => {
     try {
       const indicadores = await apiGet("/api/indicadores");
-      const custo = indicadores.find((i) => i.tipo === "custo_por_aluno_mes");
-      if (custo) {
-        document.getElementById("custo-aluno").textContent = `${formatarMoeda(custo.valor)} / mês`;
+      const porTipo = Object.fromEntries(indicadores.map((i) => [i.tipo, i.valor]));
+
+      if (porTipo.custo_por_aluno_mes) {
+        document.getElementById("custo-aluno").textContent = `${formatarMoeda(porTipo.custo_por_aluno_mes)} / mês`;
       }
+      const receitaTotal = (porTipo.receita_pf || 0) + (porTipo.receita_pj || 0);
+      if (receitaTotal) {
+        document.getElementById("valor-receita").textContent = formatarMoeda(receitaTotal);
+      }
+      if (porTipo.despesa_total) {
+        document.getElementById("valor-despesa").textContent = formatarMoeda(porTipo.despesa_total);
+      }
+      if (porTipo.superavit !== undefined) {
+        document.getElementById("valor-superavit").textContent = formatarMoeda(porTipo.superavit);
+      }
+      if (porTipo.recursos_nao_monetarios) {
+        document.getElementById("valor-nao-monetarios").textContent = formatarMoeda(porTipo.recursos_nao_monetarios);
+      }
+
+      // Balanço Patrimonial — ao contrário dos demais indicadores acima
+      // (só 2025), aqui precisamos comparar com 2024, então buscamos por
+      // ano explicitamente em vez de usar o `porTipo` (que colapsa todos os
+      // anos e ficaria só com o valor mais recente de cada tipo).
+      const porAno = (ano, tipo) => {
+        const linha = indicadores.find((i) => i.ano === ano && i.tipo === tipo);
+        return linha ? linha.valor : 0;
+      };
+      const ativo2025 = porAno(2025, "ativo_circulante");
+      const ativo2024 = porAno(2024, "ativo_circulante");
+      const passivo2025 = porAno(2025, "passivo_circulante");
+      const passivo2024 = porAno(2024, "passivo_circulante");
+      const pl2025 = porAno(2025, "patrimonio_liquido");
+      const pl2024 = porAno(2024, "patrimonio_liquido");
+
+      document.getElementById("valor-ativo").textContent = formatarMoeda(ativo2025);
+      document.getElementById("nota-ativo").textContent =
+        `Caixa e equivalentes. Em 2024: ${formatarMoeda(ativo2024)} (${formatarVariacaoPercentual(ativo2025, ativo2024)}).`;
+
+      document.getElementById("valor-passivo").textContent = formatarMoeda(passivo2025);
+      document.getElementById("nota-passivo").textContent =
+        `Obrigações a pagar. Em 2024: ${formatarMoeda(passivo2024)} (${formatarVariacaoPercentual(passivo2025, passivo2024)}).`;
+
+      document.getElementById("valor-pl").textContent = formatarMoeda(pl2025);
+      document.getElementById("nota-pl").textContent =
+        `Ativo menos Passivo. Em 2024: ${formatarMoeda(pl2024)} (${formatarVariacaoPercentual(pl2025, pl2024)}).`;
+
+      ativarLinhasExpandiveis();
     } catch (erro) {
       console.error(erro);
     }

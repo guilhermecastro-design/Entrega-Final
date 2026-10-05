@@ -6,17 +6,14 @@
 <title>Área do doador — Instituto Ebenézer</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<!-- Layout desktop (05/10/2026, validado + confirmado com o usuário em
+     05/10/2026 pra todas as telas, sem exceção — inclusive checkout/login):
+     a classe "layout-desktop" liga o layout de telas largas (sidebar fixa
+     com minimizar/maximizar + canvas cheio), definido em css/style.css. O
+     grid de 2 colunas abaixo é específico desta tela (painel financeiro).
+     Abaixo de 1024px de largura, nada muda — continua o mobile de sempre. -->
+<body class="layout-desktop">
 <div class="tela">
-  <div class="status-bar">
-    <span class="hora">9:41</span>
-    <div class="icones">
-      <span data-icon="signal"></span>
-      <span data-icon="wifi"></span>
-      <span data-icon="battery"></span>
-    </div>
-  </div>
-
   <div class="cabecalho-doador">
     <div class="saudacao-doador">
       <div class="avatar" id="avatar-inicial">?</div>
@@ -25,7 +22,14 @@
         <strong id="saudacao-nome">Olá</strong>
       </div>
     </div>
-    <button type="button" class="botao-icone" data-icon="settings" aria-label="Configurações"></button>
+    <div style="display:flex; gap:4px;">
+      <!-- Gap real encontrado em 05/10/2026: esta era a única tela do MVP
+           sem nenhum jeito de abrir o menu no mobile (só existia o ícone de
+           configurações). No piloto desktop esse botão some (a sidebar já
+           fica sempre visível — ver .layout-desktop no CSS). -->
+      <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+      <button type="button" class="botao-icone" data-icon="settings" aria-label="Configurações"></button>
+    </div>
   </div>
 
   <div class="conteudo-tela">
@@ -79,6 +83,23 @@
         </div>
         <div id="conteudo-transparencia">
           <p class="item-vazio">Carregando...</p>
+        </div>
+
+        <div style="margin-top:16px;">
+          <p class="rotulo-secao">Documentos e prestação de contas</p>
+          <a class="cartao-doc" href="https://drive.google.com/file/d/1H3MYl8UXlKWcxlp4Ccw1rnYxAonDhRdL/view" target="_blank" rel="noopener">
+            <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+              <div><p class="nome-doc">Relatório Anual de Impacto 2025</p><p class="data-doc">PDF · 51 páginas</p></div>
+            </div>
+            <span class="botao-baixar" data-icon="download" aria-label="Abrir"></span>
+          </a>
+          <a class="cartao-doc" href="https://drive.google.com/drive/u/0/folders/1_3cL6q9gJtdw89bERhNE_bgVD1migfWt" target="_blank" rel="noopener">
+            <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
+              <div><p class="nome-doc">Balanço, DRE e demais relatórios</p><p class="data-doc">Pasta pública do Instituto no Google Drive</p></div>
+            </div>
+            <span class="botao-baixar" data-icon="download" aria-label="Abrir"></span>
+          </a>
+          <p class="nota-rodape" style="margin-top:4px;">Estes dois links apontam direto para os documentos publicados pelo Instituto — não hospedamos cópia própria, pra sempre refletir a versão mais atual. Documentos institucionais, não variam por ano selecionado.</p>
         </div>
       </div>
 
@@ -220,10 +241,12 @@
   }
 
   // ---------- Aba Transparência (US-F3 — painel financeiro) ----------
-  const NOTAS_CATEGORIA = {
-    "Pessoal e Equipe":
-      "Inclui 1 psicóloga contratada e 3 estagiárias de psicologia, conforme o dossiê do módulo (equipe real; valor ainda fictício).",
-  };
+  // Notas por categoria de despesa (opcional) — vazio desde que a DRE oficial
+  // substituiu o placeholder fictício (nenhuma das 18 categorias reais tem
+  // nota adicional hoje; mantido como gancho caso o Instituto detalhe alguma
+  // categoria específica no futuro, ex: composição da folha de pessoal, que
+  // a DRE publicada não discrimina).
+  const NOTAS_CATEGORIA = {};
   const ROTULOS_ESG = {
     esg_governanca: "Governança",
     esg_estrutura_organizacional: "Estrutura Organizacional",
@@ -248,6 +271,7 @@
     try {
       const painel = await apiGet(`/api/painel-financeiro?ano=${anoSelecionado}`);
       const ind = painel.indicadores || {};
+      const indAnt = painel.indicadoresAnoAnterior || {};
 
       if (!ind.receita_pf && !ind.receita_pj && painel.despesas.length === 0) {
         container.innerHTML = `<p class="item-vazio">Dados de ${anoSelecionado} ainda não consolidados.</p>`;
@@ -278,13 +302,60 @@
 
       container.innerHTML = `
         ${avisoHtml}
-        <div class="dre-tabela" style="margin-top:12px;">
+
+        <!-- Ordem da seção (combinado com o usuário em 05/10/2026): do macro
+             pro micro — primeiro o selo de confiança (ESG), depois a saúde
+             financeira geral (Balanço Patrimonial), só então o detalhamento
+             (Receitas/Despesas/Resultado e o gráfico por categoria),
+             terminando nos documentos (fora deste container, ver HTML). -->
+        ${ind.esg_score ? `
+        <div class="cartao-esg" style="margin-top:12px;">
+          <div class="anel-progresso" style="--pct:${ind.esg_score};"><span>${ind.esg_score}%</span></div>
+          <div>
+            <p class="titulo-esg">Rating de Impacto ESG</p>
+            <p class="desc-esg">Certificado pela Phomenta. Nossos processos seguem altos padrões de governança e ética.</p>
+          </div>
+        </div>` : ""}
+
+        ${ind.custo_por_aluno_mes ? `
+        <div class="cartao-custo" style="margin-top:12px;">
+          <div class="icone-caixa" data-icon="bar-chart-2"></div>
+          <div>
+            <p class="rotulo">Custo real por aluno</p>
+            <p class="valor">${formatarMoeda(ind.custo_por_aluno_mes)} / mês</p>
+          </div>
+        </div>` : ""}
+
+        ${ind.esg_score ? `
+        <div style="margin-top:16px;">
+          <p class="rotulo-secao">ESG por Dimensão</p>
+          <div style="margin-top:8px;">${linhasEsg}</div>
+        </div>` : ""}
+
+        ${ind.ativo_circulante !== undefined ? `
+        <div class="dre-tabela" style="margin-top:16px;">
+          <p class="dre-cabecalho-grupo">Balanço Patrimonial · dados reais (site institucional, ${anoSelecionado} vs ${painel.anoAnterior})</p>
+          <div class="dre-linha-expandivel">
+            <div class="dre-linha"><span>Ativo Circulante</span><span class="dre-valor">${formatarMoeda(ind.ativo_circulante)}</span></div>
+            <p class="dre-nota-expandida">Caixa e equivalentes. Em ${painel.anoAnterior}: ${formatarMoeda(indAnt.ativo_circulante || 0)} (${formatarVariacaoPercentual(ind.ativo_circulante, indAnt.ativo_circulante)}).</p>
+          </div>
+          <div class="dre-linha-expandivel">
+            <div class="dre-linha"><span>Passivo Circulante</span><span class="dre-valor">${formatarMoeda(ind.passivo_circulante || 0)}</span></div>
+            <p class="dre-nota-expandida">Obrigações a pagar. Em ${painel.anoAnterior}: ${formatarMoeda(indAnt.passivo_circulante || 0)} (${formatarVariacaoPercentual(ind.passivo_circulante || 0, indAnt.passivo_circulante)}).</p>
+          </div>
+          <div class="dre-linha-expandivel">
+            <div class="dre-linha dre-total"><span>Patrimônio Líquido</span><span class="dre-valor">${formatarMoeda(ind.patrimonio_liquido)}</span></div>
+            <p class="dre-nota-expandida">Ativo menos Passivo. Em ${painel.anoAnterior}: ${formatarMoeda(indAnt.patrimonio_liquido || 0)} (${formatarVariacaoPercentual(ind.patrimonio_liquido, indAnt.patrimonio_liquido)}).</p>
+          </div>
+        </div>` : ""}
+
+        <div class="dre-tabela" style="margin-top:16px;">
           <p class="dre-cabecalho-grupo">Receitas · dados reais (site institucional, 2025)</p>
           <div class="dre-linha"><span>Doações Pessoa Física</span><span class="dre-valor">${formatarMoeda(ind.receita_pf || 0)}</span></div>
           <div class="dre-linha"><span>Doações Pessoa Jurídica</span><span class="dre-valor">${formatarMoeda(ind.receita_pj || 0)}</span></div>
           <div class="dre-linha dre-total"><span>Total de Receitas</span><span class="dre-valor">${formatarMoeda(painel.receitaTotal)}</span></div>
 
-          <p class="dre-cabecalho-grupo">Despesas · dados fictícios (placeholder)</p>
+          <p class="dre-cabecalho-grupo">Despesas · dados reais (site institucional, 2025)</p>
           ${linhasDespesas || '<p class="item-vazio">Sem despesas cadastradas para este ano.</p>'}
           <div class="dre-linha dre-total"><span>Total de Despesas</span><span class="dre-valor">${formatarMoeda(painel.despesaTotal)}</span></div>
 
@@ -305,40 +376,13 @@
             `;
           }).join("")}
         </div>` : ""}
-
-        ${ind.esg_score ? `
-        <div class="cartao-esg" style="margin-top:16px;">
-          <div class="anel-progresso" style="--pct:${ind.esg_score};"><span>${ind.esg_score}%</span></div>
-          <div>
-            <p class="titulo-esg">Rating de Impacto ESG</p>
-            <p class="desc-esg">Certificado pela Phomenta. Nossos processos seguem altos padrões de governança e ética.</p>
-          </div>
-        </div>
-        <div style="margin-top:16px;">
-          <p class="rotulo-secao">ESG por Dimensão</p>
-          <div style="margin-top:8px;">${linhasEsg}</div>
-        </div>` : ""}
-
-        ${ind.custo_por_aluno_mes ? `
-        <div class="cartao-custo" style="margin-top:16px;">
-          <div class="icone-caixa" data-icon="bar-chart-2"></div>
-          <div>
-            <p class="rotulo">Custo real por aluno</p>
-            <p class="valor">${formatarMoeda(ind.custo_por_aluno_mes)} / mês</p>
-          </div>
-        </div>` : ""}
       `;
 
       container.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = icone(
         el.dataset.icon.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase())
       )));
 
-      container.querySelectorAll(".dre-linha-expandivel").forEach((linha) => {
-        const nota = linha.querySelector(".dre-nota-expandida");
-        linha.addEventListener("click", () => {
-          nota.hidden = !nota.hidden;
-        });
-      });
+      ativarLinhasExpandiveis(container);
     } catch (erro) {
       console.error(erro);
       container.innerHTML = '<p class="item-vazio">Não foi possível carregar o painel financeiro agora.</p>';
@@ -355,11 +399,23 @@
         container.innerHTML = '<p class="item-vazio">Nenhuma novidade publicada ainda.</p>';
         return;
       }
-      container.innerHTML = relatos.map((relato) => {
+      // Fotos genéricas de atividade do Instituto (reais, do site institucional),
+      // usadas como ilustração dos relatos — conteúdo em si ainda é exemplo
+      // semeado (ver comentário em server.js), não notícia real; por isso
+      // giramos entre fotos genéricas em vez de prometer "é dessa data
+      // específica". Nunca uma foto ligada a uma criança/indicação individual
+      // (ver nota sobre historias.icone_tema).
+      const FOTOS_NOVIDADE = [
+        "https://www.institutosocialebenezer.com.br/_astro/lab-sonhos.DbEKjBB2_Z20beWB.webp",
+        "https://www.institutosocialebenezer.com.br/_astro/criancas-mesa.DVKvOgFa_ZKTBi5.webp",
+        "https://www.institutosocialebenezer.com.br/_astro/primeira-infancia.lErF-MRL_ZJYPlJ.webp",
+      ];
+      container.innerHTML = relatos.map((relato, indice) => {
         const data = new Date(relato.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+        const foto = FOTOS_NOVIDADE[indice % FOTOS_NOVIDADE.length];
         return `
           <div class="relato-card">
-            <div class="thumb-relato">[Foto: ${relato.titulo} — não pôde ser baixada do Figma neste ambiente]</div>
+            <div class="thumb-relato"><img src="${foto}" alt="Atividade do Instituto Ebenézer" style="width:100%;height:100%;object-fit:cover;display:block;" /></div>
             <div class="texto-relato">
               <span class="data-relato">${data.toUpperCase()}</span>
               <p class="titulo-relato">${relato.titulo}</p>

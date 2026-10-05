@@ -6,17 +6,11 @@
 <title>Documentos da parceria — Instituto Ebenézer</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<!-- Layout desktop (05/10/2026): ver nota em area-doador.html — mesma
+     classe, chrome genérico (sidebar fixa + canvas cheio). Confirmado com
+     o usuário pra todas as telas do MVP, sem exceção. -->
+<body class="layout-desktop">
 <div class="tela">
-  <div class="status-bar">
-    <span class="hora">9:41</span>
-    <div class="icones">
-      <span data-icon="signal"></span>
-      <span data-icon="wifi"></span>
-      <span data-icon="battery"></span>
-    </div>
-  </div>
-
   <div class="header-app">
     <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
     <span class="titulo">Documentos da parceria</span>
@@ -29,50 +23,26 @@
         Tudo o que sua empresa precisa para validar a parceria, em um único local — sempre com a data da última atualização.
       </p>
 
-      <!-- Documentos institucionais: conteúdo estático (a lista real de PDFs
-           não faz parte do escopo de dados deste MVP). -->
-      <div class="cartao-doc">
+      <!-- Links reais, conferidos no site institucional em 05/10/2026.
+           Apontam direto para os documentos publicados pelo Instituto (não
+           hospedamos cópia própria) — ver Gap_Analysis no doc do projeto. -->
+      <a class="cartao-doc" href="https://drive.google.com/file/d/1H3MYl8UXlKWcxlp4Ccw1rnYxAonDhRdL/view" target="_blank" rel="noopener">
         <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
-          <div><p class="nome-doc">Relatório Anual (2023–2025)</p><p class="data-doc">Atualizado em 15/03/2026</p></div>
+          <div><p class="nome-doc">Relatório Anual de Impacto 2025</p><p class="data-doc">PDF · 51 páginas</p></div>
         </div>
-        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
-      </div>
-      <div class="cartao-doc">
+        <span class="botao-baixar" data-icon="download" aria-label="Abrir"></span>
+      </a>
+      <a class="cartao-doc" href="https://drive.google.com/drive/u/0/folders/1_3cL6q9gJtdw89bERhNE_bgVD1migfWt" target="_blank" rel="noopener">
         <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
-          <div><p class="nome-doc">DRE (2023–2024)</p><p class="data-doc">Atualizado em 15/03/2026</p></div>
+          <div><p class="nome-doc">Balanço Patrimonial, DRE, Estatuto Social, Ata de Eleição e Código de Ética</p><p class="data-doc">Pasta pública do Instituto no Google Drive (2023–2025)</p></div>
         </div>
-        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
-      </div>
-      <div class="cartao-doc">
-        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
-          <div><p class="nome-doc">ESG Score — 72%</p><p class="data-doc">Atualizado em 01/02/2026</p></div>
-        </div>
-        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
-      </div>
-      <div class="cartao-doc">
-        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
-          <div><p class="nome-doc">Código de Ética e Conduta</p><p class="data-doc">Publicado em 2026</p></div>
-        </div>
-        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
-      </div>
-      <div class="cartao-doc">
-        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
-          <div><p class="nome-doc">Estatuto Social</p><p class="data-doc">Publicado em 2021</p></div>
-        </div>
-        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
-      </div>
-      <div class="cartao-doc">
-        <div class="info-doc"><div class="icone-doc" data-icon="file-text"></div>
-          <div><p class="nome-doc">Ata de Eleição</p><p class="data-doc">Publicado em 2025</p></div>
-        </div>
-        <button type="button" class="botao-baixar" data-icon="download" aria-label="Baixar"></button>
-      </div>
+        <span class="botao-baixar" data-icon="download" aria-label="Abrir"></span>
+      </a>
 
-      <div>
-        <p class="rotulo-secao">Resultado Financeiro 2025</p>
-        <div class="linha-stat"><span class="valor" style="width:130px;">R$145.019</span><span class="descricao">Total de despesas em 2025 (+11,5% vs 2024)</span></div>
-        <div class="linha-stat"><span class="valor" style="width:130px;">R$31.735</span><span class="descricao">Superávit do período (+15.485,9% vs 2024)</span></div>
-      </div>
+      <p style="font-size:13px; color:var(--texto-mudo); margin: 0;">
+        Os números completos de 2025 (receita, despesas e superávit) estão na
+        aba <a href="transparencia.html" style="color:var(--verde); font-weight:600;">Transparência</a>.
+      </p>
 
       <div class="campo-lookup">
         <label for="campo-doador-id">ID do doador (PJ) — sem login neste MVP, ver nota abaixo</label>
@@ -83,7 +53,7 @@
   </div>
 
   <div class="rodape">
-    <button type="button" class="botao-cta">Baixar todos os documentos</button>
+    <a class="botao-cta" style="text-align:center; text-decoration:none;" href="https://drive.google.com/drive/u/0/folders/1_3cL6q9gJtdw89bERhNE_bgVD1migfWt" target="_blank" rel="noopener">Ver todos os documentos</a>
     <button type="button" class="link-agora-nao" id="botao-comprovantes" style="text-decoration:none; color:var(--verde);">Ver comprovantes de doação</button>
   </div>
 </div>

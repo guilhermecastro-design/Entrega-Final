@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Estrutura do banco de dados — MVP Instituto Ebenézer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root { --verde: #1f7a4d; --texto: #1c1c1c; --texto-mudo: #5a5a5a; --borda: #e2e2e2; --fundo-card: #f7f7f5; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 64px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--texto);
+    background: #ffffff;
+    line-height: 1.55;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  h2 { font-size: 17px; margin-top: 40px; border-bottom: 2px solid var(--verde); padding-bottom: 6px; }
+  .meta { color: var(--texto-mudo); font-size: 14px; margin-bottom: 24px; }
+  .meta strong { color: var(--texto); }
+  .intro { background: var(--fundo-card); border-left: 4px solid var(--verde); padding: 12px 16px; border-radius: 4px; font-size: 14px; }
+
+  .diagrama-toolbar {
+    display: flex; gap: 8px; align-items: center; margin: 16px 0 8px;
+  }
+  .diagrama-toolbar button {
+    border: 1px solid var(--borda); background: #fff; border-radius: 6px;
+    width: 34px; height: 34px; font-size: 18px; cursor: pointer; line-height: 1;
+  }
+  .diagrama-toolbar button:hover { background: var(--fundo-card); }
+  .diagrama-toolbar span { font-size: 13px; color: var(--texto-mudo); }
+
+  .diagrama-viewport {
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    overflow: auto;
+    background: #fdfdfc;
+    max-height: 70vh;
+  }
+  .diagrama-zoom {
+    transform-origin: top left;
+    padding: 24px;
+    width: max-content;
+  }
+  .diagrama-zoom .mermaid { min-width: 900px; }
+
+  table.tabelas { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 12px; }
+  table.tabelas th, table.tabelas td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+  table.tabelas th { background: var(--fundo-card); }
+  table.tabelas td:first-child { font-weight: 600; white-space: nowrap; }
+
+  .achado { background: var(--fundo-card); border-radius: 8px; padding: 16px 18px; margin: 14px 0; border: 1px solid var(--borda); }
+  .achado strong.titulo { display: block; margin-bottom: 6px; color: var(--verde); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Documentação técnica — Estrutura do banco de dados</h1>
+  <p class="meta">
+    <strong>Projeto:</strong> MVP Instituto Ebenézer (Desafio A) · Módulo 3 — Inteli MBA em IA e Dados para Negócios<br />
+    <strong>Banco:</strong> SQLite (<code>node:sqlite</code>), arquivo <code>data/ebenezer.db</code><br />
+    <strong>Gerado a partir de:</strong> <code>server.js</code> (schema real do projeto, não hipotético)
+  </p>
+
+  <p class="intro">
+    Este documento responde ao Exercício 03 ("Finalizando o Projeto"), aplicado ao nosso projeto real —
+    não ao exemplo genérico "App do Garçom" do enunciado: diagrama do banco de dados e duas coisas que
+    ainda não sabemos se funcionam.
+  </p>
+
+  <h2>1. Diagrama do banco de dados</h2>
+  <p style="font-size:14px;">
+    9 tabelas. <code>doadores</code> é o centro do modelo — quase tudo se relaciona a um doador, exceto os
+    dados institucionais (<code>indicadores_financeiros</code>, <code>despesas_categoria</code>,
+    <code>relatos</code>), que existem independente de quem doa. Use os botões abaixo pra ampliar, ou role
+    dentro da moldura.
+  </p>
+
+  <div class="diagrama-toolbar">
+    <button id="btn-menos" aria-label="Diminuir zoom">–</button>
+    <button id="btn-mais" aria-label="Aumentar zoom">+</button>
+    <button id="btn-reset" aria-label="Resetar zoom">⟳</button>
+    <span id="zoom-label">100%</span>
+  </div>
+
+  <div class="diagrama-viewport">
+    <div class="diagrama-zoom" id="diagrama-zoom">
+      <div class="mermaid">
+erDiagram
+    DOADORES ||--o{ DOACOES : "faz (opcional - doacao avulsa)"
+    DOADORES ||--o{ SESSOES : "autentica"
+    DOADORES ||--o{ CONQUISTAS : "conquista selos"
+    DOADORES ||--o{ INDICACOES : "indica uma historia"
+    HISTORIAS ||--o{ INDICACOES : "e indicada em"
+    DOACOES |o--o| INDICACOES : "confirma (opcional)"
+
+    DOADORES {
+        int id PK
+        string nome
+        string email
+        string tipo "PF ou PJ"
+        string cpf_cnpj
+        string senha_hash "hash+salt, nunca texto puro"
+    }
+    SESSOES {
+        string token PK "token de 32 bytes, gerado no login"
+        int doador_id FK
+        string criado_em
+    }
+    DOACOES {
+        int id PK
+        int doador_id FK "nulo = doacao avulsa/anonima"
+        string email_capturado
+        real valor
+        string forma_pagamento "pix / pix_recorrente / cartao_recorrente"
+        int recorrente
+        string criado_em
+    }
+    CONQUISTAS {
+        int id PK
+        int doador_id FK
+        string tipo "marco_tempo / marco_valor"
+        string descricao
+        string atingido_em
+    }
+    HISTORIAS {
+        int id PK
+        string apelido "ficticio - nunca crianca real"
+        string faixa_etaria
+        string descricao
+    }
+    INDICACOES {
+        int id PK
+        int doador_id FK
+        int historia_id FK
+        string status "pendente / encontrou_padrinho"
+        int doacao_id FK "preenchido quando um amigo doa"
+        string criado_em
+    }
+    INDICADORES_FINANCEIROS {
+        int id PK
+        int ano
+        string tipo
+        real valor
+        string obs "UNIQUE(ano, tipo) - dado real do site institucional"
+    }
+    DESPESAS_CATEGORIA {
+        int id PK
+        int ano
+        string categoria
+        real valor
+        string fonte "real / ficticio_pendente"
+        string atualizado_em
+        string obs "UNIQUE(ano, categoria)"
+    }
+    RELATOS {
+        int id PK
+        string titulo
+        string texto
+        string data
+    }
+      </div>
+    </div>
+  </div>
+
+  <h2>2. O que cada tabela representa</h2>
+  <table class="tabelas">
+    <tr><th>Tabela</th><th>O que representa</th></tr>
+    <tr><td>doadores</td><td>Conta da pessoa (PF) ou empresa (PJ) que doa. Nasce só quando alguém se cadastra de verdade (US-F4); uma doação pode existir sem conta. Guarda o hash da senha, nunca em texto puro.</td></tr>
+    <tr><td>sessoes</td><td>Uma linha por login ativo — é o que protege a "área do doador": cada chamada à API carrega um token que aponta pra cá, e o servidor confere se o dono da sessão é o mesmo doador pedindo os dados.</td></tr>
+    <tr><td>doacoes</td><td>Toda doação registrada, recorrente ou avulsa. <code>doador_id</code> fica nulo quando é doação anônima — está no fluxo validado no Figma que doar não exige conta.</td></tr>
+    <tr><td>indicadores_financeiros / despesas_categoria</td><td>Dados institucionais (custo por aluno, ESG, receita, despesas por categoria) usados na Transparência e no painel financeiro. Não dependem de nenhum doador específico.</td></tr>
+    <tr><td>conquistas</td><td>Selos de marco (ex.: "6 meses ao lado do Instituto") calculados a partir do histórico de doações de cada doador.</td></tr>
+    <tr><td>historias</td><td>Perfis fictícios de crianças atendidas, usados na indicação "Adotar uma criança" (US-F2). Nunca nome ou foto real, por proteção ECA/LGPD.</td></tr>
+    <tr><td>indicacoes</td><td>Registro de "fulano indicou a história X pro amigo Y". Quando o amigo doa, <code>doacao_id</code> é preenchido e o status muda pra "encontrou_padrinho".</td></tr>
+    <tr><td>relatos</td><td>Feed de novidades do Instituto, mostrado na aba "Novidades" da área do doador.</td></tr>
+  </table>
+
+  <h2>3. Duas coisas que ainda não sabemos se funcionam</h2>
+
+  <div class="achado">
+    <strong class="titulo">(1) Os dados sobreviverem a um reinício do servidor — depende de onde ele está rodando</strong>
+    Essa é literalmente uma das três condições do próprio exercício, e a resposta é diferente conforme o
+    ambiente. Rodando localmente (<code>npm start</code>), o arquivo <code>data/ebenezer.db</code> fica no
+    disco normal e sobrevive a qualquer reinício — já testamos e funciona. Mas no Render (onde o link
+    público está publicado, plano gratuito), o disco é efêmero: a cada reinício automático (~15 min sem
+    uso) ou novo deploy, o banco volta ao estado semeado de fábrica, e qualquer cadastro/doação feito na
+    URL pública some. A condição é verdadeira no ambiente local e falsa no ambiente publicado — já
+    registrado no README como limitação conhecida.
+  </div>
+
+  <div class="achado">
+    <strong class="titulo">(2) O cadastro impedir e-mail duplicado sob uso simultâneo — nunca testamos isso de verdade</strong>
+    A checagem de e-mail já existente é feita em duas etapas no código (<code>SELECT</code> pra ver se o
+    e-mail já existe, e só depois o <code>INSERT</code>) — não existe uma restrição <code>UNIQUE</code> na
+    própria coluna <code>email</code> garantindo isso no nível do banco. Funciona bem no caso comum (uma
+    pessoa por vez, que foi o que testamos), mas nunca testamos duas pessoas se cadastrando com o mesmo
+    e-mail ao mesmo tempo — nesse cenário, as duas requisições poderiam passar pela checagem antes de
+    qualquer uma terminar o <code>INSERT</code>, criando duas contas com o mesmo e-mail. É exatamente esse
+    tipo de duplicidade que apareceu no nosso banco local de testes.
+  </div>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: "default", er: { useMaxWidth: false } });
+
+  let escala = 1;
+  const alvo = document.getElementById("diagrama-zoom");
+  const rotulo = document.getElementById("zoom-label");
+
+  function aplicarZoom() {
+    alvo.style.transform = `scale(${escala})`;
+    rotulo.textContent = `${Math.round(escala * 100)}%`;
+  }
+  document.getElementById("btn-mais").addEventListener("click", () => {
+    escala = Math.min(escala + 0.15, 3);
+    aplicarZoom();
+  });
+  document.getElementById("btn-menos").addEventListener("click", () => {
+    escala = Math.max(escala - 0.15, 0.3);
+    aplicarZoom();
+  });
+  document.getElementById("btn-reset").addEventListener("click", () => {
+    escala = 1;
+    aplicarZoom();
+  });
+</script>
+</body>
+</html>

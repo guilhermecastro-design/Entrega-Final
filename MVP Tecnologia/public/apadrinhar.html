@@ -6,17 +6,11 @@
 <title>Você foi convidado — Instituto Ebenézer</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<!-- Layout desktop (05/10/2026): ver nota em area-doador.html — mesma
+     classe, chrome genérico (sidebar fixa + canvas cheio). Confirmado com
+     o usuário pra todas as telas do MVP, sem exceção. -->
+<body class="layout-desktop">
 <div class="tela">
-  <div class="status-bar">
-    <span class="hora">9:41</span>
-    <div class="icones">
-      <span data-icon="signal"></span>
-      <span data-icon="wifi"></span>
-      <span data-icon="battery"></span>
-    </div>
-  </div>
-
   <div class="brand-header">
     <div class="logo">
       <div class="logo-marca" data-icon="book-open"></div>
@@ -46,6 +40,14 @@
   const container = document.getElementById("conteudo-convite");
   const rodape = document.getElementById("rodape-cta");
 
+  // Mesma ilustração (não fotográfica) usada em convidar-amigo.html — ver
+  // nota lá sobre por que nenhuma foto de rosto real entra aqui.
+  const IMAGENS_HISTORIA = {
+    futebol: "img/historia-estrela-futebol.jpg",
+    paleta: "img/historia-pequena-artista.jpg",
+    bookOpen: "img/historia-leitor-curioso.png",
+  };
+
   async function carregar() {
     if (!indicacaoId) {
       container.innerHTML = '<p class="item-vazio">Este link está incompleto. Peça pra quem te convidou enviar de novo.</p>';
@@ -59,7 +61,7 @@
         <p class="rotulo-convite">${indicacao.primeiro_nome_indicador} te convidou para apadrinhar</p>
 
         <div class="hero-historia-apadrinhar relato-card">
-          <div class="thumb-relato">[Foto: ${indicacao.apelido} — não pôde ser baixada do Figma neste ambiente]</div>
+          <div class="thumb-relato"><img src="${IMAGENS_HISTORIA[indicacao.icone_tema] || ''}" alt="${indicacao.apelido}" style="width:100%;height:100%;object-fit:cover;display:block;" /></div>
           <div class="texto-relato">
             <span class="selo-forma">${indicacao.faixa_etaria}</span>
             <p class="titulo-relato">${indicacao.apelido}</p>

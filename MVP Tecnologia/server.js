@@ -109,9 +109,20 @@ banco.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     apelido TEXT NOT NULL,
     faixa_etaria TEXT NOT NULL,
-    descricao TEXT NOT NULL
+    descricao TEXT NOT NULL,
+    icone_tema TEXT NOT NULL DEFAULT 'bookOpen'
   )
 `);
+
+// Migração defensiva (mesmo padrão de "doadores"/"indicacoes" acima):
+// `icone_tema` nasceu depois — bancos criados antes dela ganham a coluna sem
+// perder os dados. Usada no lugar de foto nas 3 histórias fictícias (US-F2):
+// nunca colocamos rosto real sob uma identidade inventada, nem foto genérica
+// de banco de imagens — ver icons.js.
+const colunasHistorias = banco.prepare("PRAGMA table_info(historias)").all();
+if (!colunasHistorias.some((c) => c.name === "icone_tema")) {
+  banco.exec("ALTER TABLE historias ADD COLUMN icone_tema TEXT NOT NULL DEFAULT 'bookOpen'");
+}
 
 banco.exec(`
   CREATE TABLE IF NOT EXISTS indicacoes (
@@ -168,7 +179,7 @@ const inserirIndicador = banco.prepare(`
 `);
 inserirIndicador.run(2025, "custo_por_aluno_mes", 93.68);
 inserirIndicador.run(2025, "esg_score", 72);
-inserirIndicador.run(2025, "receita_pf", 87033.90);
+inserirIndicador.run(2025, "receita_pf", 101561.07);
 inserirIndicador.run(2025, "receita_pj", 75293.30);
 // ESG por dimensão (reais, mesmos números já usados em transparencia.html)
 inserirIndicador.run(2025, "esg_governanca", 88);
@@ -177,25 +188,83 @@ inserirIndicador.run(2025, "esg_gestao_riscos", 75);
 inserirIndicador.run(2025, "esg_compliance", 75);
 inserirIndicador.run(2025, "esg_ambiental", 50);
 inserirIndicador.run(2025, "esg_social", 50);
+// Totais financeiros 2025 publicados em institutosocialebenezer.com.br/transparencia
+// (conferido em 05/10/2026) — usados na seção pública de Transparência, além do
+// detalhamento por categoria (despesas_categoria), hoje também real (ver abaixo).
+inserirIndicador.run(2025, "despesa_total", 146668.38);
+inserirIndicador.run(2025, "superavit", 30186.00);
+inserirIndicador.run(2025, "recursos_nao_monetarios", 783964.85);
 
-// --- Seed: despesas por categoria — FICTÍCIAS, aguardando a DRE oficial do
-// Instituto (combinado com o usuário: ele traz os números reais antes da
-// entrega final; até lá, "fonte" fica marcada como pendente). Os valores
-// foram escolhidos para reconciliar com a receita real já cadastrada acima
-// (R$ 87.033,90 + R$ 75.293,30 = R$ 162.327,20): R$ 145.327,20 em despesas
-// fictícias, R$ 17.000,00 de superávit fictício.
-const totalDespesas = banco.prepare("SELECT COUNT(*) AS total FROM despesas_categoria").get().total;
-if (totalDespesas === 0) {
+// Balanço Patrimonial 2025 vs 2024 — mesma fonte oficial acima (seção
+// "Balanço" da página de Transparência do site, que mostra os dados direto em
+// tabela, não como link externo). Estrutura contábil nova pro MVP: Ativo/
+// Passivo/Patrimônio Líquido, diferente da DRE (receita x despesa) já
+// modelada. 2024 existe só com essas 3 linhas — propositalmente não
+// preenchemos receita/despesa/ESG de 2024, já que o site não publica DRE
+// completa daquele ano, só o balanço comparativo.
+inserirIndicador.run(2025, "ativo_circulante", 39460.25);
+inserirIndicador.run(2025, "passivo_circulante", 1550.00);
+inserirIndicador.run(2025, "patrimonio_liquido", 37910.25);
+inserirIndicador.run(2024, "ativo_circulante", 7724.25);
+inserirIndicador.run(2024, "passivo_circulante", 0);
+inserirIndicador.run(2024, "patrimonio_liquido", 7724.25);
+
+// Correção pontual: `receita_pf` tinha sido semeada com um valor desatualizado
+// (R$ 87.033,90) numa sessão anterior a esta conferência. Como o INSERT acima
+// usa OR IGNORE, bancos já existentes não seriam corrigidos sem este UPDATE —
+// guardado pelo valor antigo específico, pra não sobrescrever um ajuste manual
+// futuro que alguém faça nesse mesmo campo.
+banco
+  .prepare("UPDATE indicadores_financeiros SET valor = 101561.07 WHERE ano = 2025 AND tipo = 'receita_pf' AND valor = 87033.90")
+  .run();
+
+// --- Seed: despesas por categoria — DRE oficial 2025, publicada em
+// institutosocialebenezer.com.br/transparencia (conferido em 05/10/2026).
+// Chegou antes da entrega final: a soma das 18 categorias abaixo bate,
+// centavo a centavo, com o `despesa_total` já cadastrado acima (R$
+// 146.668,38), então substitui o placeholder fictício de 4 categorias usado
+// até então — sem quebrar nada que já estava consolidado.
+const totalDespesasReais = banco
+  .prepare("SELECT COUNT(*) AS total FROM despesas_categoria WHERE ano = 2025 AND fonte = 'real'")
+  .get().total;
+if (totalDespesasReais === 0) {
   const inserirDespesa = banco.prepare(`
     INSERT INTO despesas_categoria (ano, categoria, valor, fonte, atualizado_em)
     VALUES (?, ?, ?, ?, ?)
   `);
   const agora = new Date().toISOString();
-  inserirDespesa.run(2025, "Pessoal e Equipe", 68000, "ficticio_pendente", agora);
-  inserirDespesa.run(2025, "Atividades Socioeducacionais", 42000, "ficticio_pendente", agora);
-  inserirDespesa.run(2025, "Infraestrutura", 25000, "ficticio_pendente", agora);
-  inserirDespesa.run(2025, "Administrativo", 10327.20, "ficticio_pendente", agora);
+  inserirDespesa.run(2025, "Alimentação", 41099.42, "real", agora);
+  inserirDespesa.run(2025, "Aluguel", 47800.00, "real", agora);
+  inserirDespesa.run(2025, "Evento Cultural", 15607.79, "real", agora);
+  inserirDespesa.run(2025, "Outras Despesas", 12568.70, "real", agora);
+  inserirDespesa.run(2025, "Material de Consumo", 9116.93, "real", agora);
+  inserirDespesa.run(2025, "Água e Esgoto", 2752.42, "real", agora);
+  inserirDespesa.run(2025, "Uniformes", 2909.93, "real", agora);
+  inserirDespesa.run(2025, "Energia Elétrica", 2513.89, "real", agora);
+  inserirDespesa.run(2025, "Contabilidade", 3720.00, "real", agora);
+  inserirDespesa.run(2025, "Material de Manutenção", 1481.48, "real", agora);
+  inserirDespesa.run(2025, "Segurança", 1594.69, "real", agora);
+  inserirDespesa.run(2025, "Ajuda de Custo Voluntários", 1160.00, "real", agora);
+  inserirDespesa.run(2025, "Material Pedagógico", 1100.00, "real", agora);
+  inserirDespesa.run(2025, "Material de Limpeza", 946.50, "real", agora);
+  inserirDespesa.run(2025, "Marketing", 837.66, "real", agora);
+  inserirDespesa.run(2025, "Internet", 932.29, "real", agora);
+  inserirDespesa.run(2025, "Prestação de Serviços", 300.00, "real", agora);
+  inserirDespesa.run(2025, "Impostos", 226.68, "real", agora);
 }
+
+// Correção: bancos já existentes (sessão anterior) tinham as 4 categorias
+// fictícias seedadas como placeholder enquanto a DRE oficial não chegava.
+// Agora que chegou (acima), removemos as fictícias nominalmente — não um
+// DELETE genérico por `fonte`, pra nunca arriscar apagar um ajuste manual
+// real que alguém tenha marcado como pendente por outro motivo.
+banco
+  .prepare(
+    `DELETE FROM despesas_categoria
+     WHERE ano = 2025 AND fonte = 'ficticio_pendente'
+       AND categoria IN ('Pessoal e Equipe', 'Atividades Socioeducacionais', 'Infraestrutura', 'Administrativo')`
+  )
+  .run();
 
 // ---------------------------------------------------------------------------
 // Backlog — US-F1 (conquistas/selos) e US-F3 (painel financeiro, relatos)
@@ -376,24 +445,34 @@ const totalHistorias = banco.prepare("SELECT COUNT(*) AS total FROM historias").
 
 if (totalHistorias === 0) {
   const inserirHistoria = banco.prepare(
-    "INSERT INTO historias (apelido, faixa_etaria, descricao) VALUES (?, ?, ?)"
+    "INSERT INTO historias (apelido, faixa_etaria, descricao, icone_tema) VALUES (?, ?, ?, ?)"
   );
   inserirHistoria.run(
     "Estrela do Futebol",
     "8-10 anos",
-    "Participa das atividades esportivas de sábado e sonha em ser técnico de futebol."
+    "Participa das atividades esportivas de sábado e sonha em ser técnico de futebol.",
+    "futebol"
   );
   inserirHistoria.run(
     "Pequena Artista",
     "6-8 anos",
-    "Adora as aulas de pintura e já ajudou a decorar o mural do Instituto."
+    "Adora as aulas de pintura e já ajudou a decorar o mural do Instituto.",
+    "paleta"
   );
   inserirHistoria.run(
     "Leitor Curioso",
     "10-12 anos",
-    "Sempre o primeiro a pegar um livro novo na sala de reforço escolar."
+    "Sempre o primeiro a pegar um livro novo na sala de reforço escolar.",
+    "bookOpen"
   );
 }
+
+// Correção pontual (mesmo motivo do UPDATE de receita_pf acima): bancos que já
+// tinham essas 3 histórias antes da coluna icone_tema existir ganharam o
+// valor padrão 'bookOpen' pra todas via ALTER TABLE — corrige as 2 que não é
+// esse o tema, sem mexer em nenhuma linha que já tenha sido ajustada à mão.
+banco.prepare("UPDATE historias SET icone_tema = 'futebol' WHERE apelido = 'Estrela do Futebol' AND icone_tema = 'bookOpen'").run();
+banco.prepare("UPDATE historias SET icone_tema = 'paleta' WHERE apelido = 'Pequena Artista' AND icone_tema = 'bookOpen'").run();
 
 // --- Seed: relatos de exemplo para o US-F3 (conteúdo semeado, não autoria real) ---
 const totalRelatos = banco.prepare("SELECT COUNT(*) AS total FROM relatos").get().total;
@@ -494,6 +573,7 @@ app.get("/api/relatos", (req, res) => {
 // aviso, e trocado por dado real assim que a DRE oficial chegar.
 app.get("/api/painel-financeiro", (req, res) => {
   const ano = Number(req.query.ano) || new Date().getFullYear();
+  const anoAnterior = ano - 1;
 
   const linhasIndicadores = banco
     .prepare("SELECT tipo, valor FROM indicadores_financeiros WHERE ano = ?")
@@ -501,6 +581,21 @@ app.get("/api/painel-financeiro", (req, res) => {
   const indicadores = {};
   for (const linha of linhasIndicadores) {
     indicadores[linha.tipo] = linha.valor;
+  }
+
+  // Balanço Patrimonial (Ativo/Passivo/Patrimônio Líquido) é sempre
+  // comparado com o ano anterior, igual no site oficial — buscado à parte
+  // porque o MVP não modela a DRE completa de todo ano anterior, só essas
+  // 3 linhas (ver seed em cima).
+  const linhasAnoAnterior = banco
+    .prepare(
+      `SELECT tipo, valor FROM indicadores_financeiros
+       WHERE ano = ? AND tipo IN ('ativo_circulante', 'passivo_circulante', 'patrimonio_liquido')`
+    )
+    .all(anoAnterior);
+  const indicadoresAnoAnterior = {};
+  for (const linha of linhasAnoAnterior) {
+    indicadoresAnoAnterior[linha.tipo] = linha.valor;
   }
 
   const despesas = banco
@@ -513,7 +608,9 @@ app.get("/api/painel-financeiro", (req, res) => {
 
   res.json({
     ano,
+    anoAnterior,
     indicadores,
+    indicadoresAnoAnterior,
     receitaTotal,
     despesas,
     despesaTotal,
@@ -731,7 +828,7 @@ app.get("/api/indicacoes/:id", (req, res) => {
   const indicacao = banco
     .prepare(
       `SELECT indicacoes.id, indicacoes.status, indicacoes.historia_id,
-              historias.apelido, historias.faixa_etaria, historias.descricao,
+              historias.apelido, historias.faixa_etaria, historias.descricao, historias.icone_tema,
               doadores.nome AS nome_indicador
        FROM indicacoes
        JOIN historias ON historias.id = indicacoes.historia_id

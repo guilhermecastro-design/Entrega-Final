@@ -62,31 +62,12 @@ body {
   flex-direction: column;
 }
 
-/* ---------- status bar (chrome decorativo, imita o mockup do Figma) --- */
-.status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 44px;
-  padding: 0 24px;
-  flex-shrink: 0;
-}
-.status-bar .hora {
-  font-family: "Manrope", sans-serif;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--texto);
-}
-.status-bar .icones {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  color: var(--texto);
-}
-.status-bar .icones svg {
-  width: 18px;
-  height: 18px;
-}
+/* status bar (chrome decorativo imitando o mockup de celular) removida do
+   MVP em 05/10/2026 — fica só no Figma, que é a referência visual de como
+   ficaria dentro de um telefone de verdade; o MVP funcional não precisa
+   simular esse chrome. Ícones "signal"/"wifi"/"battery" ficam em icons.js
+   sem uso ativo (sem risco: só inertes, não quebram nada se citados em
+   algum lugar que não revisamos). */
 
 /* ---------- header (voltar + título + menu) ---------------------------- */
 .header-app {
@@ -1182,6 +1163,31 @@ body {
   cursor: pointer;
   line-height: 1;
 }
+/* Botão de minimizar/maximizar a sidebar — escondido por padrão (mobile e
+   demais páginas); só aparece no piloto desktop (ver @media mais abaixo),
+   onde o painel do menu vira sidebar fixa. */
+.botao-colapsar-menu {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--texto-mudo);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: transform 0.2s ease, background 0.15s ease, color 0.15s ease;
+}
+.botao-colapsar-menu:hover {
+  background: var(--verde-tint-2);
+  color: var(--verde);
+}
+.botao-colapsar-menu svg {
+  width: 18px;
+  height: 18px;
+}
 .divisor-menu {
   height: 1px;
   background: #e9edec;
@@ -1189,7 +1195,9 @@ body {
   margin: 0;
 }
 .painel-menu a {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 14px 20px;
   color: var(--texto);
   text-decoration: none;
@@ -1198,6 +1206,26 @@ body {
 }
 .painel-menu a:hover {
   background: var(--verde-tint-2);
+}
+.painel-menu a.ativo {
+  color: var(--verde);
+  background: var(--verde-tint-2);
+  border-left: 3px solid var(--verde);
+  padding-left: 17px; /* 20px - 3px da borda, pra não "pular" o texto */
+}
+.painel-menu .icone-link {
+  flex-shrink: 0;
+  display: flex;
+  width: 20px;
+  height: 20px;
+  color: var(--texto-mudo);
+}
+.painel-menu .icone-link svg {
+  width: 20px;
+  height: 20px;
+}
+.painel-menu a.ativo .icone-link {
+  color: var(--verde);
 }
 
 /* ---------- área do doador: hub de abas (US-F1 + US-F3) -------------------- */
@@ -1423,6 +1451,12 @@ body {
   text-align: center;
   padding: 8px;
 }
+/* Ícone temático das 3 histórias fictícias (US-F2), no lugar de foto —
+   ver nota em js/icons.js sobre por quê. */
+.thumb-relato .icone-tema-historia {
+  width: 56px;
+  height: 56px;
+}
 .relato-card .texto-relato {
   padding: 12px;
 }
@@ -1519,4 +1553,202 @@ body {
   font-style: italic;
   text-align: center;
   padding: 12px;
+}
+
+/* =========================================================================
+   Layout desktop (telas largas) — validado primeiro só na área do doador
+   (05/10/2026) e, no mesmo dia, confirmado com o usuário pra propagar pra
+   TODAS as ~20 telas do MVP, sem exceção (inclusive checkout/login/
+   cadastro — decisão consciente: o usuário preferiu consistência de
+   navegação a esconder a sidebar em fluxos de tarefa focada, prática comum
+   em checkout mas não adotada aqui de propósito). Tudo aqui é isolado pela
+   classe body.layout-desktop (uma página entra na lista só adicionando essa
+   classe no <body>, ver área do doador como referência) + breakpoint
+   min-width:1024px — abaixo disso, ou numa página sem a classe, nada muda
+   em relação ao layout mobile de sempre.
+
+   Decisão de navegação: em vez de criar um componente de sidebar do zero,
+   reaproveitamos o overlay do menu (nav-menu.js/.fundo-overlay/.painel-menu,
+   já centralizado num só lugar pras ~20 telas) e o transformamos numa
+   coluna fixa à esquerda — com o X de fechar escondido, já que uma sidebar
+   sempre visível não precisa de botão pra fechar.
+   ========================================================================= */
+@media (min-width: 1024px) {
+  body.layout-desktop {
+    padding: 0;
+    justify-content: flex-start;
+  }
+
+  body.layout-desktop .tela {
+    max-width: none;
+    width: 100%;
+    min-height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+    margin-left: 280px;
+  }
+
+  /* Sidebar fixa reaproveitando o overlay do menu --------------------------
+     [hidden] global (linha ~39) usa !important — por isso a regra abaixo
+     também precisa de !important; ela vence por especificidade mais alta
+     (.fundo-overlay[hidden] > [hidden]), não por ordem no arquivo. */
+  body.layout-desktop .fundo-overlay[hidden] {
+    display: flex !important;
+  }
+  body.layout-desktop .fundo-overlay {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--borda);
+    justify-content: flex-start;
+  }
+  body.layout-desktop .painel-menu {
+    position: static;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+  }
+  body.layout-desktop .fechar-menu {
+    display: none;
+  }
+  /* O botão de fechar (X) não existe mais nesta sidebar — quem assume o
+     lugar dele, no cabeçalho do painel, é o de minimizar/maximizar. */
+  body.layout-desktop .botao-colapsar-menu {
+    display: flex;
+  }
+  /* A sidebar sempre visível substitui o hambúrguer mobile — mesmo que uma
+     página (ex: área do doador) tenha um botão desses no cabeçalho pra
+     telas estreitas, ele não faz sentido aqui. */
+  body.layout-desktop .botao-menu {
+    display: none;
+  }
+
+  /* ---- sidebar minimizada (clique no botão acima) -----------------------
+     Vira um trilho só de ícones, como no exemplo que o usuário trouxe (a
+     sidebar do "UniOps") — o conteúdo ganha a largura que a sidebar cedeu.
+     Estado persistido em localStorage (ver nav-menu.js), então sobrevive a
+     navegação entre páginas. */
+  body.layout-desktop.sidebar-colapsada .tela {
+    margin-left: 72px;
+  }
+  body.layout-desktop.sidebar-colapsada .fundo-overlay {
+    width: 72px;
+  }
+  body.layout-desktop.sidebar-colapsada .botao-colapsar-menu {
+    transform: rotate(180deg);
+  }
+  body.layout-desktop.sidebar-colapsada .rotulo-cabecalho-menu,
+  body.layout-desktop.sidebar-colapsada .rotulo-link {
+    display: none;
+  }
+  body.layout-desktop.sidebar-colapsada .cabecalho-menu {
+    justify-content: center;
+  }
+  body.layout-desktop.sidebar-colapsada .painel-menu a {
+    justify-content: center;
+    padding: 14px 0;
+  }
+  body.layout-desktop.sidebar-colapsada .painel-menu a.ativo {
+    /* padding vem da regra ".painel-menu a" logo acima (mais específica que
+       a ".painel-menu a.ativo" global, por causa do prefixo "body.layout-
+       desktop.sidebar-colapsada"), então só precisa ajustar o que é
+       exclusivo do estado ativo: sem a borda esquerda de 3px (não cabe
+       centralizada num ícone sozinho) e com cantos arredondados, igual um
+       "pill" de seleção. */
+    border-left: none;
+    border-radius: 8px;
+    margin: 0 12px;
+  }
+
+  /* A barra de abas inferior (Início/Doar/Perfil) é navegação mobile —
+     com a sidebar sempre visível à esquerda, ela fica redundante. */
+  body.layout-desktop .rodape:has(.abas-inferior) {
+    display: none;
+  }
+
+  /* Indicador de "home" do iOS (barrinha no rodapé) — chrome decorativo de
+     mockup de celular, mesma categoria da status bar removida em
+     05/10/2026; não faz sentido fora de um mockup de telefone. */
+  body.layout-desktop .indicador-home {
+    display: none;
+  }
+
+  /* Conteúdo centralizado, com largura confortável de leitura (igual a um
+     dashboard real, não esticado borda a borda). Cobre os 3 padrões de
+     cabeçalho usados pelas ~20 telas (cabecalho-doador só na área do
+     doador; header-app na maioria das páginas internas; brand-header só na
+     home) e o corpo do conteúdo, comum a todas. --------------------------- */
+  body.layout-desktop .cabecalho-doador,
+  body.layout-desktop .header-app,
+  body.layout-desktop .brand-header,
+  body.layout-desktop .corpo {
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  /* Hero (banner de foto, ex: home e sobre-nós) fica borda a borda de
+     propósito — é a única exceção à largura de leitura acima, igual a
+     banners de página inicial de sites "de verdade"; só o texto por cima
+     da imagem (título/parágrafo) fica na largura de leitura, senão o
+     título ficaria esticado confuso numa imagem de 1400px+ de largura. */
+  body.layout-desktop .hero-conteudo {
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  /* Botão (ou link) de CTA no rodapé — o rodapé em si continua borda a
+     borda (a linha divisória e o fundo branco precisam disso pra parecer
+     uma barra real, não um cartão flutuando no meio da tela), só o
+     conteúdo dele fica centralizado e com uma largura de botão razoável
+     (820px esticaria um botão de forma estranha). */
+  body.layout-desktop .rodape {
+    align-items: center;
+  }
+  body.layout-desktop .rodape .botao-cta {
+    max-width: 420px;
+  }
+
+  /* Painel financeiro (aba Transparência) em grid de 2 colunas — revisado
+     com o usuário em 05/10/2026: por padrão, cada card ocupa a largura
+     toda (inclusive o Balanço Patrimonial, que antes dividia linha com o
+     card de ESG e ficava espremido) — só os 2 cards de destaque no topo
+     (Rating ESG + Custo por aluno) ficam lado a lado, por serem do mesmo
+     tamanho/peso visual. O JS já gera esses dois adjacentes no HTML (ver
+     carregarTransparencia), então basta não forçar largura total neles. */
+  body.layout-desktop #conteudo-transparencia {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  body.layout-desktop #conteudo-transparencia > * {
+    grid-column: 1 / -1;
+  }
+  body.layout-desktop #conteudo-transparencia > .cartao-esg,
+  body.layout-desktop #conteudo-transparencia > .cartao-custo {
+    grid-column: auto;
+  }
+
+  /* Cards de pessoa/iniciativa em grid de 3 colunas — revisado com o
+     usuário em 05/10/2026: em telas largas, a pilha vertical única de
+     ".feed-relatos" (pensada pro mobile) desperdiçava o espaço. Só nas
+     páginas "Nosso time" e "Nossas iniciativas" (marcadas com a classe
+     adicional ".grade-cards" no HTML) — outros usos de ".feed-relatos"
+     (Novidades da área do doador, Convidar um amigo) continuam em lista
+     única de propósito, por serem textuais/cronológicos, não uma galeria
+     de cards. Um grupo com 4 cards (ex: Conselho Consultivo) fecha em
+     3+1 — aceitável, igual a qualquer grid de cards do mundo real. */
+  body.layout-desktop .grade-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
 }

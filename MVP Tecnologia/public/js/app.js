@@ -85,6 +85,35 @@ function formatarMoeda(valor) {
   return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// Variação percentual entre dois valores, pro texto expandido do Balanço
+// Patrimonial (ex: "+406,9% vs ano anterior"). Trata o caso em que o ano
+// anterior é zero (ex: Passivo Circulante era R$ 0,00 em 2024) — variação
+// percentual não existe matematicamente nesse caso.
+function formatarVariacaoPercentual(atual, anterior) {
+  if (!anterior) {
+    return atual ? "não havia registro no ano anterior" : "sem variação";
+  }
+  const pct = ((atual - anterior) / Math.abs(anterior)) * 100;
+  const sinal = pct > 0 ? "+" : "";
+  return `${sinal}${pct.toFixed(1)}% vs ano anterior`;
+}
+
+// Ativa o clique-pra-expandir nas linhas de DRE/Balanço (`.dre-linha-
+// expandivel`) dentro do escopo dado — usado tanto no painel dinâmico da
+// área do doador quanto nas seções estáticas de transparencia.html. Guarda
+// contra religar o mesmo elemento duas vezes (ex: se chamado mais de uma
+// vez sobre o mesmo container estático).
+function ativarLinhasExpandiveis(escopo) {
+  (escopo || document).querySelectorAll(".dre-linha-expandivel").forEach((linha) => {
+    const nota = linha.querySelector(".dre-nota-expandida");
+    if (!nota || linha.dataset.expansivelAtivado) return;
+    linha.dataset.expansivelAtivado = "true";
+    linha.addEventListener("click", () => {
+      nota.hidden = !nota.hidden;
+    });
+  });
+}
+
 function paramUrl(nome) {
   return new URLSearchParams(window.location.search).get(nome);
 }

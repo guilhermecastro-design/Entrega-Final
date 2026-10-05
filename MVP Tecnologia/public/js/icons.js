@@ -5,6 +5,9 @@
 // projeto foi montado não tem saída de rede para figma.com, então os
 // arquivos originais não puderam ser baixados — estes são equivalentes
 // funcionais desenhados à mão, no mesmo estilo de traço (stroke, 2px).
+//
+// futebol e paleta (abaixo) são usados só nas 3 histórias fictícias do
+// US-F2, no lugar de foto — ver nota na seção ICONES.
 
 const ICONES = {
   chevronLeft:
@@ -45,12 +48,25 @@ const ICONES = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
   fileText:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+  // users/logOut — adicionados em 05/10/2026 pro menu lateral (ícone por
+  // item, visível mesmo quando a sidebar está minimizada).
+  users:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+  logOut:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>',
   signal:
     '<svg viewBox="0 0 20 20" fill="currentColor"><rect x="0" y="12" width="3" height="6" rx="0.5"></rect><rect x="5" y="9" width="3" height="9" rx="0.5"></rect><rect x="10" y="5" width="3" height="13" rx="0.5"></rect><rect x="15" y="1" width="3" height="17" rx="0.5"></rect></svg>',
   wifi:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13a10 10 0 0 1 14 0"></path><path d="M8.5 16.5a5 5 0 0 1 7 0"></path><line x1="12" y1="20" x2="12" y2="20"></line></svg>',
   battery:
     '<svg viewBox="0 0 25 18" fill="none"><rect x="1" y="1" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.5"></rect><rect x="3.5" y="3.5" width="15" height="11" rx="1.5" fill="currentColor"></rect><rect x="22" y="6" width="2" height="6" rx="1" fill="currentColor"></rect></svg>',
+  // Ícones temáticos pras 3 histórias fictícias (US-F2) — usados no lugar de
+  // foto, de propósito: nunca colocar um rosto real sob uma identidade
+  // inventada, nem que seja foto genérica de banco de imagens.
+  futebol:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 7l3 2.2-1.1 3.6H10.1L9 9.2z"></path><path d="M12 2v5M12 17v5M3.5 9l4.3 1.4M16.2 13.6l4.3 1.4M3.5 15l4.3-1.4M16.2 10.4l4.3-1.4"></path></svg>',
+  paleta:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3c1.9 0 3.5-1.6 3.5-3.5C20.8 6.4 16.9 2 12 2z"></path><circle cx="6.8" cy="11.3" r="1.4"></circle><circle cx="9.6" cy="7.6" r="1.4"></circle><circle cx="14.4" cy="7.6" r="1.4"></circle><circle cx="17.2" cy="11.3" r="1.4"></circle></svg>',
 };
 
 function icone(nome) {

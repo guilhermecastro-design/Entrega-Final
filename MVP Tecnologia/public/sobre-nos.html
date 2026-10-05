@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sobre nós — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<!-- Layout desktop (05/10/2026): ver nota em area-doador.html — mesma
+     classe, chrome genérico (sidebar fixa + canvas cheio). Confirmado com
+     o usuário pra todas as telas do MVP, sem exceção. -->
+<body class="layout-desktop">
+<div class="tela">
+  <div class="header-app">
+    <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
+    <span class="titulo">Sobre nós</span>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="hero" style="height:220px; background: url('https://www.institutosocialebenezer.com.br/_astro/foto-equipe.CxX0K-yt_ZgbQ1C.webp') center/cover no-repeat;">
+      <span class="legenda-foto">Foto: equipe do Instituto Ebenézer</span>
+      <div class="hero-conteudo">
+        <h1 style="font-size:24px;">"Se mudarmos o começo da história, mudamos a história toda"</h1>
+      </div>
+    </div>
+
+    <div class="corpo">
+      <p class="paragrafo-intro">
+        O Instituto Ebenézer é uma organização sem fins lucrativos que atua no Jardim Ângela, São Paulo,
+        dedicada a crianças em situação de vulnerabilidade social. Acreditamos que a infância é o período
+        mais determinante da vida humana — e que mudar o começo da história de uma criança muda a história
+        toda.
+      </p>
+
+      <div class="cartao-destaque">
+        <div class="icone-selo" data-icon="award"></div>
+        <div>
+          <strong>Nossa missão</strong>
+          <span>Transformar perspectivas infantis criando oportunidades, para que crianças em situação de vulnerabilidade se tornem protagonistas dos próprios caminhos.</span>
+        </div>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Nossa visão de impacto</p>
+        <p class="paragrafo-intro" style="margin-top:8px;">
+          Ser referência em transformação social pela infância, contribuindo para a redução de desigualdades
+          e o fortalecimento da comunidade — demonstrando que alterar as trajetórias iniciais gera impactos
+          duradouros no futuro.
+        </p>
+      </div>
+
+      <div>
+        <p class="rotulo-secao">Nossos valores</p>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;">
+          <span class="selo-forma">Foco na Solução</span>
+          <span class="selo-forma">Colaboração</span>
+          <span class="selo-forma">Proatividade</span>
+          <span class="selo-forma">Trabalho Inteligente</span>
+          <span class="selo-forma">Escuta Atenta</span>
+          <span class="selo-forma">Construção de Autonomia</span>
+        </div>
+      </div>
+
+      <div class="cartao-custo">
+        <div class="icone-caixa" data-icon="user"></div>
+        <div>
+          <p class="rotulo">Impacto até hoje</p>
+          <p class="valor">+200 alunos beneficiados</p>
+        </div>
+      </div>
+      <p class="nota-rodape" style="margin-top:-8px;">
+        Com aulas de desenvolvimento pessoal, tecnologia e atividades lúdicas.
+      </p>
+
+      <div>
+        <p class="rotulo-secao">Alinhamento com os ODS</p>
+        <p class="paragrafo-intro" style="margin-top:8px;">
+          Nosso trabalho está alinhado aos Objetivos de Desenvolvimento Sustentável da ONU, com foco em
+          erradicação da pobreza, educação de qualidade e redução das desigualdades.
+        </p>
+      </div>
+
+      <a class="nota-rodape" href="nosso-time.html" style="text-decoration: underline; cursor: pointer; display:block;">
+        Conheça as pessoas por trás do Instituto em "Nosso Time" →
+      </a>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <button type="button" class="botao-cta" id="botao-doar">Quero ajudar agora</button>
+    <div class="indicador-home"><span></span></div>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  document.getElementById("botao-doar").addEventListener("click", () => {
+    window.location.href = "escolha-doacao.html";
+  });
+</script>
+</body>
+</html>
