@@ -81,6 +81,77 @@ async function apiPost(caminho, corpo) {
   return dados;
 }
 
+// --- Sessão do painel administrativo (admin.html) --------------------------
+// Deliberadamente separada da sessão de doador acima (chave própria no
+// localStorage, cabeçalho próprio na API) — ver nota em server.js sobre
+// adminAutenticado(): assim nenhuma das duas sessões pode ser confundida
+// com a outra, nem por acidente.
+const CHAVE_SESSAO_ADMIN = "ebenezer_sessao_admin";
+
+function tokenSessaoAdmin() {
+  return localStorage.getItem(CHAVE_SESSAO_ADMIN);
+}
+
+function salvarSessaoAdmin(token) {
+  localStorage.setItem(CHAVE_SESSAO_ADMIN, token);
+}
+
+function limparSessaoAdmin() {
+  localStorage.removeItem(CHAVE_SESSAO_ADMIN);
+}
+
+async function apiGetAdmin(caminho) {
+  const token = tokenSessaoAdmin();
+  const resposta = await fetch(caminho, { headers: token ? { "X-Admin-Token": token } : {} });
+  const dados = await resposta.json();
+  if (!resposta.ok) {
+    throw new Error(dados.erro || "Erro na requisição.");
+  }
+  return dados;
+}
+
+async function apiPostAdmin(caminho, corpo) {
+  const token = tokenSessaoAdmin();
+  const resposta = await fetch(caminho, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { "X-Admin-Token": token } : {}) },
+    body: JSON.stringify(corpo),
+  });
+  const dados = await resposta.json();
+  if (!resposta.ok) {
+    throw new Error(dados.erro || "Erro na requisição.");
+  }
+  return dados;
+}
+
+// Guarda de página do painel administrativo — mesmo papel de exigirLogin(),
+// mas pra sessão de admin. Chame no topo de admin.html: `const admin = await
+// exigirLoginAdmin(); if (!admin) return;`.
+async function exigirLoginAdmin() {
+  const token = tokenSessaoAdmin();
+  if (!token) {
+    window.location.href = "admin-login.html";
+    return null;
+  }
+  try {
+    return await apiGetAdmin("/api/admin/me");
+  } catch (erro) {
+    limparSessaoAdmin();
+    window.location.href = "admin-login.html";
+    return null;
+  }
+}
+
+async function sairAdmin() {
+  try {
+    await apiPostAdmin("/api/admin/logout", {});
+  } catch (erro) {
+    // Best-effort, mesmo espírito do sair() de doador acima.
+  }
+  limparSessaoAdmin();
+  window.location.href = "index.html";
+}
+
 function formatarMoeda(valor) {
   return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }

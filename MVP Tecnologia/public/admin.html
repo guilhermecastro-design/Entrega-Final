@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Painel administrativo — Instituto Ebenézer</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<!-- Layout desktop (05/10/2026): ver nota em area-doador.html — mesma
+     classe, chrome genérico (sidebar fixa + canvas cheio). Confirmado com
+     o usuário pra todas as telas do MVP, sem exceção.
+
+     Painel administrativo mínimo, somente-leitura — Componente 3 do
+     Business Case (estratégia de adoção): a equipe do Instituto não tem
+     competência técnica para consultar o banco de dados diretamente
+     (restrição real do dossiê, bloco 5). Esta tela existe só pra resolver
+     isso — somente leitura, nenhum dado sensível de criança atendida (ver
+     /api/admin/* no server.js).
+
+     05/10/2026: passou a ficar visível no menu principal (pra deixar claro,
+     numa demonstração do MVP, que a funcionalidade existe) — mas atrás de
+     login próprio (admin-login.html, sessão separada da de doador), senão
+     qualquer visitante do site público veria quantas doações o Instituto
+     recebeu e a lista de e-mails de doadores. -->
+<body class="layout-desktop">
+<div class="tela">
+  <div class="header-app">
+    <button type="button" class="botao-icone" id="botao-voltar" data-icon="chevron-left" aria-label="Voltar"></button>
+    <span class="titulo">Painel administrativo</span>
+    <button type="button" class="botao-icone botao-menu" data-icon="menu" aria-label="Abrir menu"></button>
+  </div>
+
+  <div class="conteudo-tela">
+    <div class="corpo">
+      <p class="nota-rodape" style="margin:0 0 4px; display:flex; justify-content:space-between; gap:8px; align-items:baseline;">
+        <span>Visão somente-leitura para a equipe do Instituto acompanhar doações e cadastros — sem exigir consulta direta ao banco de dados.<span id="selo-asaas"></span></span>
+        <a href="#" id="botao-sair-admin" style="color:var(--verde); font-weight:600; white-space:nowrap;">Sair</a>
+      </p>
+
+      <div>
+        <p class="rotulo-secao">Resumo</p>
+        <div class="linha-stat"><span class="valor" id="resumo-total-doacoes">—</span><span class="descricao">Doações registradas</span></div>
+        <div class="linha-stat"><span class="valor" id="resumo-valor-total">—</span><span class="descricao">Valor total arrecadado</span></div>
+        <div class="linha-stat"><span class="valor" id="resumo-pendentes">—</span><span class="descricao">Pix aguardando confirmação</span></div>
+        <div class="linha-stat"><span class="valor" id="resumo-doadores">—</span><span class="descricao">Contas de doador cadastradas</span></div>
+        <div class="linha-stat"><span class="valor" id="resumo-indicacoes">—</span><span class="descricao">Indicações (Adotar uma criança)</span></div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <p class="rotulo-secao">Últimas doações</p>
+        <ul class="lista-doacoes" id="lista-doacoes-admin" style="list-style:none; padding:0; margin:8px 0 0;">
+          <li class="item-vazio">Carregando...</li>
+        </ul>
+      </div>
+
+      <div style="margin-top:16px;">
+        <p class="rotulo-secao">Últimas contas de doador</p>
+        <ul class="lista-doacoes" id="lista-doadores-admin" style="list-style:none; padding:0; margin:8px 0 0;">
+          <li class="item-vazio">Carregando...</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/app.js"></script>
+<script src="js/nav-menu.js"></script>
+<script>
+  const ROTULOS_FORMA = {
+    pix: "Pix (avulso)",
+    pix_recorrente: "Pix Automático",
+    cartao_recorrente: "Cartão de Crédito",
+  };
+  const ROTULOS_STATUS = {
+    pendente: "Aguardando confirmação",
+    confirmada: "Confirmada",
+  };
+
+  function formatarData(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  }
+
+  async function carregarResumo() {
+    try {
+      const resumo = await apiGetAdmin("/api/admin/resumo");
+      document.getElementById("resumo-total-doacoes").textContent = resumo.total_doacoes;
+      document.getElementById("resumo-valor-total").textContent = formatarMoeda(resumo.valor_total_doacoes);
+      document.getElementById("resumo-pendentes").textContent = resumo.doacoes_pendentes;
+      document.getElementById("resumo-doadores").textContent = resumo.total_doadores;
+      document.getElementById("resumo-indicacoes").textContent = resumo.total_indicacoes;
+      document.getElementById("selo-asaas").textContent = resumo.asaas_configurado
+        ? " Integração Pix (Asaas sandbox): ativa."
+        : " Integração Pix (Asaas sandbox): não configurada neste ambiente — doações aparecem como autodeclaradas.";
+    } catch (erro) {
+      console.error(erro);
+    }
+  }
+
+  async function carregarDoacoes() {
+    const lista = document.getElementById("lista-doacoes-admin");
+    try {
+      const doacoes = await apiGetAdmin("/api/admin/doacoes");
+      lista.innerHTML = "";
+      if (doacoes.length === 0) {
+        lista.innerHTML = '<li class="item-vazio">Nenhuma doação registrada ainda.</li>';
+        return;
+      }
+      for (const doacao of doacoes) {
+        const item = document.createElement("li");
+        item.className = "item-doacao";
+        const recorrente = doacao.recorrente ? "recorrente" : "";
+        item.innerHTML = `
+          <div><p class="valor">${formatarMoeda(doacao.valor)}</p><p class="data">${formatarData(doacao.criado_em)}${doacao.email_capturado ? " · " + doacao.email_capturado : ""}</p></div>
+          <span class="selo-forma ${recorrente}">${ROTULOS_FORMA[doacao.forma_pagamento] || doacao.forma_pagamento} · ${ROTULOS_STATUS[doacao.status_pagamento] || doacao.status_pagamento}</span>
+        `;
+        lista.appendChild(item);
+      }
+    } catch (erro) {
+      console.error(erro);
+      lista.innerHTML = '<li class="item-vazio">Não foi possível carregar as doações agora.</li>';
+    }
+  }
+
+  async function carregarDoadores() {
+    const lista = document.getElementById("lista-doadores-admin");
+    try {
+      const doadores = await apiGetAdmin("/api/admin/doadores");
+      lista.innerHTML = "";
+      if (doadores.length === 0) {
+        lista.innerHTML = '<li class="item-vazio">Nenhuma conta de doador cadastrada ainda.</li>';
+        return;
+      }
+      for (const doador of doadores) {
+        const item = document.createElement("li");
+        item.className = "item-doacao";
+        item.innerHTML = `
+          <div><p class="valor">${doador.nome}</p><p class="data">${doador.email}</p></div>
+          <span class="selo-forma">${String(doador.tipo).toLowerCase() === "pj" ? "Empresa parceira" : "Pessoa física"}</span>
+        `;
+        lista.appendChild(item);
+      }
+    } catch (erro) {
+      console.error(erro);
+      lista.innerHTML = '<li class="item-vazio">Não foi possível carregar os doadores agora.</li>';
+    }
+  }
+
+  document.getElementById("botao-sair-admin").addEventListener("click", (evento) => {
+    evento.preventDefault();
+    sairAdmin();
+  });
+
+  (async () => {
+    const admin = await exigirLoginAdmin();
+    if (!admin) return; // exigirLoginAdmin() já redirecionou pra admin-login.html
+
+    carregarResumo();
+    carregarDoacoes();
+    carregarDoadores();
+  })();
+</script>
+</body>
+</html>

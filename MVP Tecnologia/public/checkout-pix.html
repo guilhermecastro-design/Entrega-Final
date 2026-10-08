@@ -26,15 +26,15 @@
 
       <p class="titulo-valor" id="titulo-valor">Doação Única de R$ 95,00</p>
 
-      <div class="qr-container">
-        <div class="qr-visual"><span>PIX PAYMENT</span></div>
+      <div class="qr-container" id="qr-container">
+        <div class="qr-visual" id="qr-visual"><span>PIX PAYMENT</span></div>
       </div>
 
       <div class="caixa-codigo">
         <p class="rotulo-secao">Código Pix Copia e Cola</p>
         <div class="campo-copiar">
-          <span>00020101021226830014br.gov.bcb.pix2561081...</span>
-          <button type="button" class="botao-copiar" data-icon="copy" aria-label="Copiar código"></button>
+          <span id="texto-codigo-pix">00020101021226830014br.gov.bcb.pix2561081...</span>
+          <button type="button" class="botao-copiar" id="botao-copiar" data-icon="copy" aria-label="Copiar código"></button>
         </div>
       </div>
 
@@ -44,9 +44,9 @@
       </div>
       <p class="nota-envio">Enviaremos novidades sobre o impacto da sua doação.</p>
 
-      <div class="status-aguardando">
+      <div class="status-aguardando" id="status-aguardando">
         <span data-icon="loader"></span>
-        <span>Aguardando confirmação do pagamento...</span>
+        <span id="texto-status">Gerando cobrança Pix...</span>
       </div>
     </div>
   </div>
@@ -62,24 +62,158 @@
 <script src="js/app.js"></script>
 <script src="js/nav-menu.js"></script>
 <script>
+  // ---------------------------------------------------------------------
+  // Integração Asaas (sandbox) — Pix avulso, 05/10/2026.
+  //
+  // Antes: botão "Já realizei o Pix" só criava a doação localmente
+  // (status sempre "confirmada", sem nenhuma verificação real) sobre um QR
+  // decorativo (CSS, sem dado nenhum por trás).
+  //
+  // Agora: a cobrança é criada no servidor assim que a tela abre (POST
+  // /api/pix/cobranca). Se houver uma chave Asaas sandbox configurada no
+  // ambiente (ASAAS_API_KEY), o servidor devolve um QR code e um código
+  // copia-e-cola reais, e esta tela passa a consultar o status de verdade
+  // (polling de /api/pix/status/:id) até o pagamento ser confirmado — pelo
+  // Asaas, não pelo doador. Se não houver chave configurada (ambiente sem
+  // sandbox cadastrado, como a avaliação do professor), o servidor responde
+  // "configurado: false" e esta tela cai de volta no comportamento antigo
+  // (decorativo + botão autodeclarado), sem quebrar nada.
+  // ---------------------------------------------------------------------
+
   const valor = Number(paramUrl("valor"));
   document.getElementById("titulo-valor").textContent = valor
     ? `Doação Única de ${formatarMoeda(valor)}`
     : "Valor não informado";
 
-  document.getElementById("botao-confirmar").addEventListener("click", async () => {
-    const email = document.getElementById("campo-email").value.trim();
+  const elStatusAguardando = document.getElementById("status-aguardando");
+  const elTextoStatus = document.getElementById("texto-status");
+  const elQrVisual = document.getElementById("qr-visual");
+  const elTextoCodigo = document.getElementById("texto-codigo-pix");
+  const elBotaoConfirmar = document.getElementById("botao-confirmar");
+  const elMensagemErro = document.getElementById("mensagem-erro");
+  const elBotaoCopiar = document.getElementById("botao-copiar");
+  const elCampoEmail = document.getElementById("campo-email");
+
+  let doacaoId = null;
+  let configurado = false;
+  let codigoPixReal = null;
+  let intervaloPolling = null;
+
+  function pararPolling() {
+    if (intervaloPolling) {
+      clearInterval(intervaloPolling);
+      intervaloPolling = null;
+    }
+  }
+
+  async function irParaConfirmacao() {
+    pararPolling();
+    await confirmarIndicacaoSeNecessario(doacaoId);
+    window.location.href = `confirmacao.html?doacao=${doacaoId}`;
+  }
+
+  // Consulta /api/pix/status/:id. Usado tanto pelo polling automático
+  // (ambiente com Asaas configurado) quanto pelo clique manual no botão
+  // (ambiente sem Asaas, ou doador impaciente querendo forçar a checagem).
+  async function verificarStatus() {
+    if (!doacaoId) return false;
     try {
-      const doacao = await apiPost("/api/doacoes", {
-        valor,
-        forma_pagamento: "pix",
-        recorrente: false,
-        email_capturado: email || null,
-      });
-      await confirmarIndicacaoSeNecessario(doacao.id);
-      window.location.href = `confirmacao.html?doacao=${doacao.id}`;
+      const resposta = await apiGet(`/api/pix/status/${doacaoId}`);
+      if (resposta.status_pagamento === "confirmada") {
+        elTextoStatus.textContent = "Pagamento confirmado!";
+        await irParaConfirmacao();
+        return true;
+      }
     } catch (erro) {
-      document.getElementById("mensagem-erro").textContent = erro.message;
+      // Best-effort — uma falha pontual de rede no polling não deve travar
+      // a tela nem assustar o doador; a próxima tentativa resolve.
+      console.error("Falha ao verificar status do Pix:", erro.message);
+    }
+    return false;
+  }
+
+  // Cria a cobrança assim que a tela abre — é isso que gera o QR real (ou
+  // cai no modo decorativo, se o ambiente não tiver chave Asaas).
+  (async () => {
+    try {
+      const resposta = await apiPost("/api/pix/cobranca", {
+        valor,
+        email_capturado: elCampoEmail.value.trim() || null,
+      });
+      doacaoId = resposta.doacao_id;
+      configurado = resposta.configurado === true;
+
+      if (configurado) {
+        elQrVisual.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = `data:image/png;base64,${resposta.qr_code_base64}`;
+        img.alt = "QR code Pix";
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.borderRadius = "12px";
+        elQrVisual.appendChild(img);
+        elQrVisual.style.background = "#fff";
+        codigoPixReal = resposta.payload;
+        elTextoCodigo.textContent = resposta.payload;
+        elTextoStatus.textContent = "Aguardando confirmação do pagamento...";
+
+        // Polling a cada 4s — reforço ao webhook, que pode não chegar numa
+        // demonstração local (sem URL pública cadastrada no Asaas).
+        intervaloPolling = setInterval(verificarStatus, 4000);
+      } else {
+        // Ambiente sem ASAAS_API_KEY: mantém o QR decorativo e o código
+        // de exemplo que já existiam, e o botão volta a ser autodeclarado
+        // (comportamento idêntico ao MVP antes desta integração).
+        elTextoStatus.textContent = "Aguardando confirmação do pagamento...";
+        if (resposta.aviso) {
+          console.error("Asaas sandbox indisponível, usando modo demonstração:", resposta.aviso);
+        }
+      }
+    } catch (erro) {
+      elMensagemErro.textContent = erro.message;
+      elStatusAguardando.hidden = true;
+    }
+  })();
+
+  // Associa o e-mail (se o doador digitar depois que o QR já foi gerado) —
+  // best-effort, nunca bloqueia o fluxo.
+  elCampoEmail.addEventListener("blur", () => {
+    const email = elCampoEmail.value.trim();
+    if (!email || !doacaoId) return;
+    apiPost(`/api/pix/${doacaoId}/email`, { email }).catch(() => {});
+  });
+
+  elBotaoCopiar.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(codigoPixReal || elTextoCodigo.textContent);
+    } catch (erro) {
+      // Sem permissão de clipboard (ex: contexto não-seguro) — sem efeito
+      // visível além do código já estar exibido na tela pra copiar à mão.
+    }
+  });
+
+  elBotaoConfirmar.addEventListener("click", async () => {
+    elMensagemErro.textContent = "";
+    if (configurado) {
+      // Com Asaas configurado, o botão deixa de ser uma autodeclaração: ele
+      // força uma checagem imediata do status real, pro caso do doador não
+      // querer esperar o próximo ciclo de polling.
+      elTextoStatus.textContent = "Verificando pagamento...";
+      const confirmado = await verificarStatus();
+      if (!confirmado) {
+        elMensagemErro.textContent = "Ainda não identificamos o pagamento. Assim que for confirmado pelo Asaas, esta tela avança automaticamente.";
+        elTextoStatus.textContent = "Aguardando confirmação do pagamento...";
+      }
+    } else {
+      // Sem Asaas configurado: comportamento antigo, preservado tal e qual
+      // (autodeclaração, sem verificação real) — mas sobre a doação que já
+      // foi criada quando a tela abriu, em vez de criar uma segunda.
+      try {
+        await apiPost(`/api/pix/${doacaoId}/confirmar-autodeclarado`, {});
+        await irParaConfirmacao();
+      } catch (erro) {
+        elMensagemErro.textContent = erro.message;
+      }
     }
   });
 </script>

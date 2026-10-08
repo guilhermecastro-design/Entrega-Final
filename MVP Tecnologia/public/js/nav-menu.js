@@ -43,6 +43,8 @@
       <a href="area-doador.html" title="Área do doador"><span class="icone-link" data-icon="user"></span><span class="rotulo-link">Área do doador</span></a>
       <a href="documentos-empresa.html" title="Sou uma empresa parceira"><span class="icone-link" data-icon="building"></span><span class="rotulo-link">Sou uma empresa parceira</span></a>
       <hr class="divisor-menu" />
+      <a href="admin.html" title="Painel administrativo (acesso restrito à equipe)"><span class="icone-link" data-icon="shield-check"></span><span class="rotulo-link">Painel administrativo</span></a>
+      <hr class="divisor-menu" />
       ${itemSessao}
     </div>
   `;

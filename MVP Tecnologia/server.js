@@ -70,6 +70,28 @@ banco.exec(`
   )
 `);
 
+// Autenticação do painel administrativo (05/10/2026) — deliberadamente uma
+// tabela e uma sessão SEPARADAS de `doadores`/`sessoes`: um doador comum
+// nunca deve conseguir ver o painel interno, então o login de um não pode
+// nem por acidente valer como sessão do outro. Mesmo padrão de hash
+// (scrypt com salt, ver gerarHashSenha abaixo) usado em toda a aplicação.
+banco.exec(`
+  CREATE TABLE IF NOT EXISTS admin_usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    senha_hash TEXT NOT NULL
+  )
+`);
+
+banco.exec(`
+  CREATE TABLE IF NOT EXISTS admin_sessoes (
+    token TEXT PRIMARY KEY,
+    admin_id INTEGER NOT NULL,
+    criado_em TEXT NOT NULL,
+    FOREIGN KEY (admin_id) REFERENCES admin_usuarios(id)
+  )
+`);
+
 banco.exec(`
   CREATE TABLE IF NOT EXISTS doacoes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,6 +102,28 @@ banco.exec(`
     recorrente INTEGER NOT NULL DEFAULT 0,
     criado_em TEXT NOT NULL,
     FOREIGN KEY (doador_id) REFERENCES doadores(id)
+  )
+`);
+
+// Migração defensiva (05/10/2026) — integração real de Pix avulso via Asaas
+// (sandbox). Doações criadas pelo fluxo antigo (decorativo/autodeclarado)
+// ficam com essas colunas NULL, o que é lido como "sem rastreamento Asaas" —
+// nenhum dado existente precisa ser migrado ou apagado.
+const colunasDoacoes = banco.prepare("PRAGMA table_info(doacoes)").all();
+if (!colunasDoacoes.some((c) => c.name === "status_pagamento")) {
+  banco.exec("ALTER TABLE doacoes ADD COLUMN status_pagamento TEXT NOT NULL DEFAULT 'confirmada'");
+}
+if (!colunasDoacoes.some((c) => c.name === "asaas_payment_id")) {
+  banco.exec("ALTER TABLE doacoes ADD COLUMN asaas_payment_id TEXT");
+}
+
+// Configuração do Asaas — guarda só o id do cliente sandbox já criado, pra
+// não recriar um cliente novo a cada doação. Nenhuma credencial fica aqui:
+// a chave de API vive em variável de ambiente (ASAAS_API_KEY), nunca no banco.
+banco.exec(`
+  CREATE TABLE IF NOT EXISTS config_asaas (
+    chave TEXT PRIMARY KEY,
+    valor TEXT NOT NULL
   )
 `);
 
@@ -377,6 +421,21 @@ function doadorAutenticado(req) {
   return doador || null;
 }
 
+// Autenticação do painel administrativo — usa um cabeçalho PRÓPRIO
+// ("X-Admin-Token", não "Authorization") de propósito: assim uma sessão de
+// doador e uma sessão de admin podem conviver no mesmo navegador sem colidir
+// (ex: alguém da equipe logado como doador no site público, em outra aba,
+// enquanto consulta o painel) — e um token de uma nunca é aceito na outra,
+// mesmo por engano, porque cada um só é procurado na sua própria tabela.
+function adminAutenticado(req) {
+  const token = req.header("X-Admin-Token");
+  if (!token) return null;
+  const sessao = banco.prepare("SELECT * FROM admin_sessoes WHERE token = ?").get(token);
+  if (!sessao) return null;
+  const admin = banco.prepare("SELECT id, email FROM admin_usuarios WHERE id = ?").get(sessao.admin_id);
+  return admin || null;
+}
+
 // Exige sessão válida E que ela pertença ao :id pedido na rota — sem isso,
 // o login seria só de fachada (o front-end pediria senha, mas qualquer um
 // ainda poderia chamar a API direto pra ver dados de outro doador). Devolve
@@ -438,6 +497,19 @@ if (totalDoadores === 0) {
   // GET /api/doadores/:id/conquistas.
   calcularEGravarConquistas(idRenataExemplo);
   calcularEGravarConquistas(idMarcosExemplo);
+}
+
+// --- Seed: conta de demonstração do painel administrativo ---
+// Credenciais fixas e documentadas no README (mesmo padrão dos 2 doadores de
+// exemplo acima) — suficiente para a avaliação do MVP; não substitui um
+// sistema de convite/cadastro de equipe real, fora de escopo desta entrega
+// (ver "Plano de sustentação" no Business Case: quem administra o acesso
+// é uma decisão organizacional da equipe do Instituto, não técnica).
+const totalAdmins = banco.prepare("SELECT COUNT(*) AS total FROM admin_usuarios").get().total;
+if (totalAdmins === 0) {
+  banco
+    .prepare("INSERT INTO admin_usuarios (email, senha_hash) VALUES (?, ?)")
+    .run("equipe@institutoebenezer.org.br", gerarHashSenha("ebenezer-admin-2026"));
 }
 
 // --- Seed: histórias fictícias para o US-F2 (nunca dados de criança real) ---
@@ -657,6 +729,287 @@ app.get("/api/doacoes/:id", (req, res) => {
     return res.status(404).json({ erro: "Doação não encontrada." });
   }
   res.json(doacao);
+});
+
+// ---------------------------------------------------------------------------
+// Integração Asaas (sandbox) — Pix avulso, 05/10/2026.
+//
+// Decisão de escopo (combinada com o usuário): só o Pix avulso (checkout-pix)
+// passa a gerar uma cobrança real no ambiente sandbox do Asaas — QR code e
+// código copia-e-cola de verdade, com confirmação verificada (webhook ou
+// consulta de status), em vez do QR decorativo + botão autodeclarado que o
+// MVP tinha até aqui. Pix Automático recorrente e Cartão recorrente
+// continuam no modelo anterior — fica registrado como item 2 do roadmap
+// pós-semana-10 (ver Custo_Adocao_Sustentacao_Ebenezer.docx).
+//
+// Modo de segurança: sem ASAAS_API_KEY configurada no ambiente, todas as
+// rotas abaixo respondem "configurado: false" e o front-end (checkout-pix.html)
+// cai de volta ao comportamento antigo (decorativo/autodeclarado) sem quebrar
+// nada — isso cobre qualquer ambiente (inclusive o deploy público de
+// demonstração) em que ninguém tenha cadastrado uma chave ainda.
+//
+// Nenhuma credencial de produção é usada ou aceita aqui: a base da API é
+// sempre a de sandbox (api-sandbox.asaas.com), fixa no código, independente
+// do valor da chave.
+
+const ASAAS_API_BASE = "https://api-sandbox.asaas.com/v3";
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY || "";
+const ASAAS_WEBHOOK_TOKEN = process.env.ASAAS_WEBHOOK_TOKEN || "";
+const asaasConfigurado = () => ASAAS_API_KEY.length > 0;
+
+// CPF sintético (passa no algoritmo de validação de dígito verificador, mas
+// não corresponde a nenhuma pessoa real) — usado só para cadastrar, uma
+// única vez, o cliente genérico de sandbox que recebe todas as cobranças de
+// teste deste MVP. Mesma disciplina de dado sintético já aplicada em
+// "historias" (US-F2): nunca um CPF ou identidade real.
+const CPF_SINTETICO_SANDBOX = "11144477735";
+
+async function chamarAsaas(caminho, { method = "GET", body } = {}) {
+  const resposta = await fetch(`${ASAAS_API_BASE}${caminho}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      access_token: ASAAS_API_KEY,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (!resposta.ok) {
+    const mensagem = dados?.errors?.[0]?.description || `Erro Asaas (${resposta.status})`;
+    throw new Error(mensagem);
+  }
+  return dados;
+}
+
+// Garante um cliente sandbox único, reaproveitado por todas as doações —
+// criar um cliente novo por doador exigiria coletar CPF/CNPJ real no
+// checkout avulso, o que o protótipo deliberadamente não faz (doação sem
+// cadastro é requisito da Semana 5).
+async function obterOuCriarClienteAsaas() {
+  const existente = banco.prepare("SELECT valor FROM config_asaas WHERE chave = 'cliente_id'").get();
+  if (existente) return existente.valor;
+
+  const cliente = await chamarAsaas("/customers", {
+    method: "POST",
+    body: {
+      name: "Doador MVP Ebenézer (sandbox)",
+      cpfCnpj: CPF_SINTETICO_SANDBOX,
+    },
+  });
+  banco.prepare("INSERT OR REPLACE INTO config_asaas (chave, valor) VALUES ('cliente_id', ?)").run(cliente.id);
+  return cliente.id;
+}
+
+// POST /api/pix/cobranca — cria a doação local (status "pendente") e, se
+// configurado, a cobrança real correspondente no Asaas sandbox + QR code.
+app.post("/api/pix/cobranca", async (req, res) => {
+  const { valor, email_capturado } = req.body;
+  if (typeof valor !== "number" || valor <= 0) {
+    return res.status(400).json({ erro: "Informe um valor de doação válido (maior que zero)." });
+  }
+
+  const criadoEm = new Date().toISOString();
+  const inserir = banco.prepare(`
+    INSERT INTO doacoes (doador_id, email_capturado, valor, forma_pagamento, recorrente, criado_em, status_pagamento)
+    VALUES (NULL, ?, ?, 'pix', 0, ?, 'pendente')
+  `);
+  const resultado = inserir.run(email_capturado || null, valor, criadoEm);
+  const doacaoId = Number(resultado.lastInsertRowid);
+
+  if (!asaasConfigurado()) {
+    return res.status(201).json({ doacao_id: doacaoId, configurado: false });
+  }
+
+  try {
+    const clienteId = await obterOuCriarClienteAsaas();
+    const hoje = new Date().toISOString().slice(0, 10);
+    const pagamento = await chamarAsaas("/payments", {
+      method: "POST",
+      body: { customer: clienteId, billingType: "PIX", value: valor, dueDate: hoje },
+    });
+    const qrCode = await chamarAsaas(`/payments/${pagamento.id}/pixQrCode`);
+
+    banco.prepare("UPDATE doacoes SET asaas_payment_id = ? WHERE id = ?").run(pagamento.id, doacaoId);
+
+    res.status(201).json({
+      doacao_id: doacaoId,
+      configurado: true,
+      qr_code_base64: qrCode.encodedImage,
+      payload: qrCode.payload,
+    });
+  } catch (erro) {
+    // Falha ao falar com o Asaas não derruba o checkout — cai pro modo
+    // demonstração (decorativo) pra não travar a doação por um problema de
+    // rede/sandbox momentâneo.
+    console.error("Falha na integração Asaas:", erro.message);
+    res.status(201).json({ doacao_id: doacaoId, configurado: false, aviso: erro.message });
+  }
+});
+
+// POST /api/pix/:id/email — associa o e-mail opcional depois que a cobrança
+// já foi criada. Necessário porque, no fluxo novo, o QR é gerado assim que a
+// tela abre (pra não atrasar o pagamento) — antes de o doador ter tido a
+// chance de digitar o e-mail. Best-effort: nunca bloqueia a doação em si.
+app.post("/api/pix/:id/email", (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(200).json({ atualizado: false });
+  banco.prepare("UPDATE doacoes SET email_capturado = ? WHERE id = ?").run(email, Number(req.params.id));
+  res.status(200).json({ atualizado: true });
+});
+
+// POST /api/pix/:id/confirmar-autodeclarado — usado só quando o ambiente NÃO
+// tem ASAAS_API_KEY configurada (configurado: false). Preserva o
+// comportamento antigo do MVP (botão "Já realizei o Pix" marca a doação como
+// confirmada sem nenhuma verificação real) sobre a MESMA doação já criada no
+// carregamento da tela — evita duplicar a linha em `doacoes` (uma pendente
+// órfã + uma confirmada) que existiria se este fluxo reusasse o antigo
+// POST /api/doacoes.
+app.post("/api/pix/:id/confirmar-autodeclarado", (req, res) => {
+  banco.prepare("UPDATE doacoes SET status_pagamento = 'confirmada' WHERE id = ?").run(Number(req.params.id));
+  res.status(200).json({ status_pagamento: "confirmada" });
+});
+
+// GET /api/pix/status/:doacaoId — usado pelo polling do checkout-pix.html.
+// Se ainda pendente e houver cobrança Asaas associada, consulta o status real
+// como reforço ao webhook (que pode chegar com atraso numa demonstração ao
+// vivo).
+app.get("/api/pix/status/:doacaoId", async (req, res) => {
+  const doacao = banco.prepare("SELECT * FROM doacoes WHERE id = ?").get(Number(req.params.doacaoId));
+  if (!doacao) {
+    return res.status(404).json({ erro: "Doação não encontrada." });
+  }
+
+  if (doacao.status_pagamento === "pendente" && doacao.asaas_payment_id && asaasConfigurado()) {
+    try {
+      const pagamento = await chamarAsaas(`/payments/${doacao.asaas_payment_id}`);
+      if (pagamento.status === "RECEIVED" || pagamento.status === "CONFIRMED") {
+        banco.prepare("UPDATE doacoes SET status_pagamento = 'confirmada' WHERE id = ?").run(doacao.id);
+        doacao.status_pagamento = "confirmada";
+      }
+    } catch (erro) {
+      console.error("Falha ao consultar status Asaas:", erro.message);
+    }
+  }
+
+  res.json({ status_pagamento: doacao.status_pagamento });
+});
+
+// POST /api/webhooks/asaas — recebe PAYMENT_RECEIVED/PAYMENT_CONFIRMED em
+// tempo real. Precisa ser cadastrada manualmente no painel do Asaas sandbox
+// (Configurações > Integrações > Webhooks), apontando pra
+// "<url pública do deploy>/api/webhooks/asaas", com o mesmo token definido
+// em ASAAS_WEBHOOK_TOKEN.
+app.post("/api/webhooks/asaas", (req, res) => {
+  if (ASAAS_WEBHOOK_TOKEN) {
+    const tokenRecebido = req.header("asaas-access-token");
+    if (tokenRecebido !== ASAAS_WEBHOOK_TOKEN) {
+      return res.status(401).json({ erro: "Token de webhook inválido." });
+    }
+  }
+
+  const { event, payment } = req.body || {};
+  if (
+    (event === "PAYMENT_RECEIVED" || event === "PAYMENT_CONFIRMED") &&
+    payment?.id
+  ) {
+    banco
+      .prepare("UPDATE doacoes SET status_pagamento = 'confirmada' WHERE asaas_payment_id = ?")
+      .run(payment.id);
+  }
+
+  res.status(200).json({ recebido: true });
+});
+
+// ---------------------------------------------------------------------------
+// Painel administrativo mínimo (somente-leitura), 05/10/2026 — Componente 3
+// do Business Case (estratégia de adoção): a equipe do Instituto não tem
+// competência técnica para consultar o banco de dados diretamente (restrição
+// real do dossiê, bloco 5). Esta rota expõe só o que a equipe precisa ver —
+// somente leitura, nenhum dado sensível de criança atendida.
+//
+// Login (05/10/2026): o painel fica visível no menu principal do MVP (pra
+// ficar claro, numa demonstração, que a funcionalidade existe) mas exige
+// sessão de admin — ver credencial de demonstração semeada acima e
+// documentada no README. Sem isso, qualquer visitante do site público
+// conseguiria ver quantas doações o Instituto recebeu e a lista de e-mails
+// de doadores, o que não faria sentido nem para uma demonstração.
+
+// POST /api/admin/login
+app.post("/api/admin/login", (req, res) => {
+  const { email, senha } = req.body || {};
+  if (!email || !senha) {
+    return res.status(400).json({ erro: "Informe e-mail e senha." });
+  }
+  const admin = banco.prepare("SELECT * FROM admin_usuarios WHERE email = ?").get(email.trim().toLowerCase());
+  if (!admin || !senhaConfere(senha, admin.senha_hash)) {
+    return res.status(401).json({ erro: "E-mail ou senha incorretos." });
+  }
+  const token = gerarTokenSessao();
+  banco
+    .prepare("INSERT INTO admin_sessoes (token, admin_id, criado_em) VALUES (?, ?, ?)")
+    .run(token, admin.id, new Date().toISOString());
+  res.json({ token, admin: { id: admin.id, email: admin.email } });
+});
+
+// POST /api/admin/logout — idempotente, mesmo padrão de /api/auth/logout.
+app.post("/api/admin/logout", (req, res) => {
+  const token = req.header("X-Admin-Token");
+  if (token) {
+    banco.prepare("DELETE FROM admin_sessoes WHERE token = ?").run(token);
+  }
+  res.json({ ok: true });
+});
+
+// GET /api/admin/me — valida a sessão atual (usada por exigirLoginAdmin() no
+// front-end antes de renderizar admin.html).
+app.get("/api/admin/me", (req, res) => {
+  const admin = adminAutenticado(req);
+  if (!admin) {
+    return res.status(401).json({ erro: "Não autenticado." });
+  }
+  res.json(admin);
+});
+
+app.get("/api/admin/resumo", (req, res) => {
+  if (!adminAutenticado(req)) {
+    return res.status(401).json({ erro: "Não autenticado. Faça login novamente." });
+  }
+  const totalDoacoes = banco.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(valor), 0) AS total FROM doacoes").get();
+  const doacoesPendentes = banco.prepare("SELECT COUNT(*) AS n FROM doacoes WHERE status_pagamento = 'pendente'").get().n;
+  const totalDoadores = banco.prepare("SELECT COUNT(*) AS n FROM doadores").get().n;
+  const totalIndicacoes = banco.prepare("SELECT COUNT(*) AS n FROM indicacoes").get().n;
+  res.json({
+    total_doacoes: totalDoacoes.n,
+    valor_total_doacoes: totalDoacoes.total,
+    doacoes_pendentes: doacoesPendentes,
+    total_doadores: totalDoadores,
+    total_indicacoes: totalIndicacoes,
+    asaas_configurado: asaasConfigurado(),
+  });
+});
+
+app.get("/api/admin/doacoes", (req, res) => {
+  if (!adminAutenticado(req)) {
+    return res.status(401).json({ erro: "Não autenticado. Faça login novamente." });
+  }
+  const doacoes = banco
+    .prepare("SELECT id, valor, forma_pagamento, recorrente, status_pagamento, email_capturado, criado_em FROM doacoes ORDER BY criado_em DESC LIMIT 100")
+    .all();
+  res.json(doacoes);
+});
+
+app.get("/api/admin/doadores", (req, res) => {
+  if (!adminAutenticado(req)) {
+    return res.status(401).json({ erro: "Não autenticado. Faça login novamente." });
+  }
+  // Nota: a tabela `doadores` não guarda data de criação da conta (schema
+  // original da US-F4, anterior a este painel) — por isso a ordenação é por
+  // id decrescente (proxy pra "mais recente"), e não há "criado_em" pra
+  // exibir, diferente de `doacoes`.
+  const doadores = banco
+    .prepare("SELECT id, nome, email, tipo FROM doadores ORDER BY id DESC LIMIT 100")
+    .all();
+  res.json(doadores);
 });
 
 // ---------------------------------------------------------------------------

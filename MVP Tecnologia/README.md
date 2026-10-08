@@ -20,6 +20,54 @@ fixa:
 Qualquer outra pessoa pode criar a própria conta em `cadastro.html` (ou pelo
 botão "Criar minha área do doador" que aparece depois de uma doação).
 
+## Painel administrativo (equipe do Instituto)
+
+Visão somente-leitura de doações e contas de doador, pensada pra equipe do
+Instituto acompanhar o funcionamento do MVP sem precisar consultar o banco de
+dados diretamente. Fica visível no menu principal ("Painel administrativo"),
+mas atrás de um login próprio — **separado do login de doador** acima, numa
+tabela e numa sessão independentes (`admin.html` → `admin-login.html`, API em
+`/api/admin/*` com o cabeçalho `X-Admin-Token`) — pra um doador comum nunca
+conseguir abrir o painel interno, nem por acidente.
+
+Credencial de demonstração (mesmo padrão das credenciais de doador acima —
+documentada aqui pra quem for avaliar o protótipo conseguir entrar direto):
+
+| E-mail | Senha |
+|---|---|
+| `equipe@institutoebenezer.org.br` | `ebenezer-admin-2026` |
+
+Isso resolve a demonstração e a validação com usuário real deste MVP, mas não
+é um sistema de gestão de acesso de equipe de verdade (convite, múltiplos
+perfis, recuperação de senha) — essa é uma decisão organizacional do
+Instituto sobre quem administra o quê, não uma lacuna técnica; fica registrada
+como item em aberto no plano de sustentação do Business Case.
+
+## Integração de pagamento (Pix avulso via Asaas) — modo de operação
+
+O checkout de Pix avulso (`checkout-pix.html`) é capaz de gerar uma cobrança
+real no ambiente sandbox do Asaas (QR code e código copia-e-cola verdadeiros,
+com confirmação verificada por consulta de status/webhook) — mas **esta
+entrega roda deliberadamente em modo de fallback**, sem a variável de
+ambiente `ASAAS_API_KEY` configurada. Decisão do grupo: o ganho de ter uma
+chave sandbox ativa não compensava, neste momento, o tempo de configurar e
+manter uma conta Asaas só para demonstração — o modo de fallback já resolve o
+que importava para esta entrega (preservar o fluxo existente e eliminar o
+risco de duplicar doações).
+
+Nesse modo, o comportamento é idêntico ao do MVP antes desta integração: QR
+decorativo, código de exemplo, e o botão "Já realizei o Pix" marca a doação
+como confirmada por autodeclaração (sem verificação real de pagamento) — a
+única mudança interna é que a doação é criada uma única vez, assim que a tela
+abre, em vez de só no clique do botão (ver `/api/pix/cobranca` e
+`/api/pix/:id/confirmar-autodeclarado` em `server.js`).
+
+Pra ativar o modo real (opcional, caso o grupo crie uma conta em
+[sandbox.asaas.com](https://sandbox.asaas.com)): defina `ASAAS_API_KEY` (e,
+opcionalmente, `ASAAS_WEBHOOK_TOKEN`) como variável de ambiente antes de
+`npm start`. Nenhuma credencial de produção é aceita — a base da API é sempre
+a de sandbox, fixa no código.
+
 ## Rodando localmente
 
 Pré-requisito: Node.js 22.5 ou mais recente (o projeto usa `node:sqlite`, nativo do
